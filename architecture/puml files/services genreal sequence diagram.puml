@@ -1,0 +1,91 @@
+@startuml
+skinparam sequence {
+  ActorBackgroundColor<<user>> LightBlue
+  ArrowColor DeepSkyBlue
+  LifeLineBorderColor Black
+  LifeLineBackgroundColor<<cache>> AliceBlue
+  MessageAlign center
+}
+
+title Последовательность: API + Авторизация + Кэш + Поиск + ETL
+
+actor "Клиент" as client <<external>>
+participant "FastAPI" as fastapi <<api>>
+participant "AuthService" as auth <<auth>>
+participant "PostgreSQL" as postgres <<db>>
+participant "Redis" as redis <<cache>>
+participant "Elasticsearch" as elasticsearch <<db>>
+participant "ETLService" as etl <<etl>>
+
+client -> fastapi: GET /api/v1/films?query=Star
+activate fastapi
+
+fastapi -> auth: get_current_user(token)
+activate auth
+
+auth -> postgres: SELECT user WHERE email = ?
+activate postgres
+
+postgres --> auth: возвращает пользователя
+deactivate postgres
+
+auth --> fastapi: пользователь авторизован
+deactivate auth
+
+fastapi -> redis: Redis.get(film:{uuid})
+activate redis
+
+redis --> fastapi: данных нет в кэше
+
+fastapi -> elasticsearch: ES.search(index="movies", query)
+activate elasticsearch
+
+elasticsearch --> fastapi: возвращает фильмы
+
+fastapi -> redis: Redis.set(film:{uuid}, films)
+
+redis --> fastapi: OK
+
+fastapi --> client: JSON response с фильмами
+deactivate fastapi
+
+note right of fastapi
+  FastAPI — основной API-сервис.
+  Проверяет авторизацию, использует кэширование,
+  обращается к Elasticsearch для поиска.
+end note
+
+note right of auth
+  AuthService проверяет токен JWT,
+  работает с PostgreSQL для получения информации о пользователе.
+end note
+
+note right of redis
+  Redis используется как хранилище сессий
+  и кэша для ускорения работы API.
+end note
+
+note right of elasticsearch
+  Elasticsearch обеспечивает быстрый поиск
+  и фильтрацию данных о фильмах.
+end note
+
+note right of etl
+  ETLService переносит данные из PostgreSQL в Elasticsearch.
+end note
+
+
+' ==== ETL процесс ====
+etl -> postgres: SELECT * FROM film_work
+activate postgres
+
+postgres --> etl: возвращает сырые данные
+deactivate postgres
+
+etl -> elasticsearch: bulk index данных
+activate elasticsearch
+
+elasticsearch --> etl: успешно загружено
+deactivate elasticsearch
+
+@enduml

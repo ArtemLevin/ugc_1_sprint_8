@@ -1,0 +1,36 @@
+@startuml
+actor "Пользователь" as user
+participant "AuthService" as auth_service
+participant "PasswordHasher" as hasher
+participant "MfaService" as mfa
+participant "JWTAuth" as jwt
+participant "PostgreSQL" as pg
+participant "RedisSessionStorage" as session_redis
+
+user -> auth_service: POST /login
+auth_service -> pg: SELECT user WHERE email = ?
+pg --> auth_service: возвращает запись
+
+auth_service -> hasher: verify_password(input, stored_hash)
+hasher --> auth_service: пароль верный
+
+auth_service -> mfa: вклчена ли MFA
+mfa --> auth_service: да, всключена
+
+auth_service -> mfa: создание токена
+mfa --> user: SMS/Email
+
+user -> auth_service: подтверждение TOTP кода
+auth_service -> mfa: валидация TOTP
+mfa --> auth_service: код корректный
+
+auth_service -> jwt: generate_jwt(user)
+jwt --> auth_service: возвращает JWT токен
+
+auth_service -> session_redis: store_session(session_key, user_id)
+session_redis -> redis: SETEX(session_key, TTL, user_id)
+redis --> session_redis: OK
+session_redis --> auth_service: сессия сохранена
+
+auth_service --> user: JWT + session cookie
+@enduml

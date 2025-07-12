@@ -1,0 +1,25 @@
+@startuml
+actor "Клиент" as client
+participant "GenreService" as genre_service
+participant "CacheService" as cache_service
+participant "Redis" as redis
+participant "ElasticService" as elastic_service
+participant "Elasticsearch" as es
+
+client -> genre_service: GET /api/v1/genres/{uuid}
+genre_service -> cache_service: get_from_cache(uuid)
+cache_service -> redis: Redis.get(genre:{uuid})
+redis --> cache_service: None
+
+genre_service -> elastic_service: get_by_uuid(uuid)
+elastic_service -> es: ES.get(index="genres", id=uuid)
+es --> elastic_service: возвращает данные
+elastic_service --> genre_service: объект Genre
+
+genre_service -> cache_service: save_to_cache(uuid, genre_data)
+cache_service -> redis: Redis.set(genre:{uuid}, genre_data)
+redis --> cache_service: OK
+cache_service --> genre_service: сохранено
+
+genre_service --> client: JSON-ответ с жанром
+@enduml

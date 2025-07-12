@@ -1,0 +1,25 @@
+@startuml
+participant "ETLService" as etl
+participant "PostgresExtractor" as extractor
+participant "DataTransformer" as transformer
+participant "ElasticsearchLoader" as loader
+participant "StateManager" as state_manager
+participant "PostgreSQL" as pg
+participant "Elasticsearch" as es
+
+etl -> extractor: extract_data()
+extractor -> pg: SELECT * FROM content.film_work
+pg --> extractor: возвращает сырые данные
+
+etl -> transformer: transform(data)
+transformer --> FilmWorkDC: создаёт DC объекты
+transformer --> etl: преобразованные данные
+
+etl -> loader: load_data(transformed_data)
+loader -> es: bulk index документов
+es --> loader: успешно загружено
+loader --> etl: данные загружены
+
+etl -> state_manager: update_state()
+state_manager --> etl: состояние обновлено
+@enduml

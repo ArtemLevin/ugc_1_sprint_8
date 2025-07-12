@@ -1,0 +1,26 @@
+@startuml
+actor "Клиент" as client
+participant "FilmService" as film_service
+participant "CacheService" as cache_service
+participant "Redis" as redis
+participant "ElasticService" as elastic_service
+participant "Elasticsearch" as elasticsearch
+
+client -> film_service: GET /api/v1/films?query=Star
+film_service -> cache_service: get_from_cache(key)
+cache_service -> redis: Redis.get(key)
+redis --> cache_service: None
+cache_service --> film_service: кэш пуст
+
+film_service -> elastic_service: search_in_elastic(query)
+elastic_service -> elasticsearch: ES.search(index="movies")
+elasticsearch --> elastic_service: возвращает данные
+elastic_service --> film_service: обработанные данные
+
+film_service -> cache_service: save_to_cache(key, results)
+cache_service -> redis: Redis.set(key, results)
+redis --> cache_service: OK
+cache_service --> film_service: закэшировано
+
+film_service --> client: JSON-ответ с фильмами
+@enduml

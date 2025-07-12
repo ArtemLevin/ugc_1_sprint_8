@@ -1,0 +1,54 @@
+@startuml
+skinparam componentStyle 2
+skinparam linetype ortho
+
+skinparam component {
+  BackgroundColor<<api>> LightGreen
+  BackgroundColor<<auth>> LightBlue
+  BackgroundColor<<db>> LightYellow
+  BackgroundColor<<cache>> AliceBlue
+  BackgroundColor<<etl>> Orange
+  BackgroundColor<<external>> #FFD700 ' Золотистый для внешних систем
+  BorderColor Gray
+  FontSize 12
+  FontStyle Bold
+}
+
+title Упрощённая архитектура сервиса
+
+package "Внешние системы" {
+  [Client] as client <<external>>
+}
+
+package "API Сервис" {
+  [FastAPI] as fastapi <<api>>
+}
+
+package "Сервисы" {
+  [AuthService] as auth <<auth>>
+  [ETLService] as etl <<etl>>
+}
+
+package "Хранилища данных" {
+  [PostgreSQL] as postgres <<db>>
+  [Redis] as redis <<cache>>
+  [Elasticsearch] as elasticsearch <<db>>
+}
+
+
+client ----> fastapi : HTTP запросы
+
+fastapi ----> redis : Кэширование
+fastapi ----> elasticsearch : Поиск данных
+fastapi ----> auth : Авторизация
+
+auth --> postgres : Проверка пользователя
+redis --> auth : Хранение сессий
+
+etl ----> postgres : Извлечение данных
+etl ----> elasticsearch : Загрузка данных
+
+
+
+
+@enduml
