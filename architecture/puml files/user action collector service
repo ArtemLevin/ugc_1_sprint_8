@@ -1,0 +1,45 @@
+@startuml
+actor "Пользователь" as User
+participant "API" as API
+participant "Redis" as Redis
+participant "Kafka Producer" as KafkaProducer
+participant "Kafka" as Kafka
+participant "Downstream" as Downstream
+participant "OpenTelemetry / Jaeger" as Jaeger
+
+User ->> API: POST-запрос
+activate API
+
+API ->> API: Валидация события
+
+API ->> Redis: Проверка кэша
+activate Redis
+Redis -->> API: Кэш пуст
+
+API ->> Redis: Rate Limiting
+Redis -->> API: Лимит не превышен
+
+API ->> KafkaProducer: Отправка события
+activate KafkaProducer
+KafkaProducer ->> KafkaProducer: Добавление в буфер
+
+KafkaProducer ->> Kafka: flush (таймер/размер)
+activate Kafka
+Kafka -->> Downstream: Событие доступно
+activate Downstream
+
+API ->> Redis: Сохранение в кэш
+
+API -->> User: 202 Accepted
+deactivate API
+
+
+API ->> Jaeger: Отправка span (request)
+KafkaProducer ->> Jaeger: Отправка span (kafka_send)
+Redis ->> Jaeger: Отправка span (redis_check, redis_rate_limit)
+
+deactivate Redis
+deactivate KafkaProducer
+deactivate Kafka
+deactivate Downstream
+@enduml
