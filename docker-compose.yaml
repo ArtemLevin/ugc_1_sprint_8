@@ -1,0 +1,36 @@
+services:
+  user-action-collector:
+    build: .
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      - kafka
+      - redis
+      - dlq_redis
+      - jaeger
+
+  kafka:
+    image: bitnami/kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+
+  dlq_redis:
+    image: redis:latest
+    container_name: dlq_redis
+    ports:
+      - "6380:6379"
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "4318:4318"
+      - "16686:16686"
