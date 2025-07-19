@@ -49,11 +49,7 @@ class KafkaConnection:
                 topic=topic
             )
             metadata = await future
-            logger.debug(f"Sent {len(batch)} events to Kafka",
-                         topic=topic,
-                         partition=metadata.partition,
-                         offset=metadata.offset)
-            return True
+            return metadata  # или просто return True
         except Exception as e:
             logger.error("Kafka send error", error=str(e))
-            return False
+            raise
