@@ -6,7 +6,7 @@ from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
 def setup_tracing(app):
     provider = TracerProvider()
-    exporter = OTLPSpanExporter(endpoint="http://jaeger:4318/v1/traces")
+    exporter = OTLPSpanExporter(endpoint=settings.tracing.otel_exporter_otlp_endpoint)
     provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
     FlaskInstrumentor.instrument_app(app)
@@ -17,3 +17,4 @@ def add_event_attributes(event):
         span.set_attribute("event.type", event.event_type)
         span.set_attribute("user.id", str(event.user_id))
         span.set_attribute("event.timestamp", event.timestamp.isoformat())
+        span.set_attribute("event.session_id", str(event.session_id) if event.session_id else "none")
