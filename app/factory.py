@@ -23,7 +23,7 @@ def create_app(redis_pool=None, rate_limiter=None, kafka_producer=None):
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    logger = get_logger()
+    logger = get_logger(__name__)
 
     if not redis_pool:
         redis_pool = RedisPool()
