@@ -1,7 +1,6 @@
 from flask import Flask
 from flask.async import AsyncFlask
 from app.core.config import KafkaSettings, RedisSettings, RateLimitSettings
-from app.core.logger import get_logger
 from app.core.tracing import setup_tracing
 from app.core.health import register_health_check
 from app.services.kafka_producer import BufferedKafkaProducer
@@ -16,15 +15,12 @@ def create_app():
     setup_tracing(app)
     register_health_check(app)
 
-    # Setup logging
     logging.basicConfig(level=logging.INFO)
 
-    # Load configs
     kafka_settings = KafkaSettings()
     redis_settings = RedisSettings()
     rate_limit_settings = RateLimitSettings()
 
-    # Initialize services
     redis_pool = RedisPool(url=redis_settings.redis_url, max_connections=redis_settings.redis_max_connections)
     rate_limiter = RedisLeakyBucketRateLimiter(
         redis_pool=redis_pool,
@@ -38,12 +34,10 @@ def create_app():
         send_timeout=kafka_settings.kafka_send_timeout
     )
 
-    # Register routes
     @app.route('/api/v1/events/track', methods=['POST'])
     async def track_event_route():
         return await track_event(redis_pool, rate_limiter, kafka_producer)
 
-    # Lifecycle
     @app.before_first_request
     async def initialize():
         await redis_pool.get_client()

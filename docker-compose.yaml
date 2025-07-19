@@ -1,36 +1,51 @@
 services:
-  user-action-collector:
-    build: .
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
-      - "5000:5000"
+      - "8000:5000"
     env_file:
       - .env
     depends_on:
-      - kafka
-      - redis
-      - dlq_redis
-      - jaeger
+      - message-broker
+      - cache
+      - dlq-cache
+      - tracing
+    restart: unless-stopped
 
-  kafka:
+  message-broker:
     image: bitnami/kafka:latest
     ports:
-      - "9092:9092"
+      - "29092"
     environment:
       - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+    networks:
+      - internal-network
 
-  redis:
+  cache:
     image: redis:latest
     ports:
-      - "6379:6379"
+      - "6389"
+    networks:
+      - internal-network
 
-  dlq_redis:
+  dlq-cache:
     image: redis:latest
-    container_name: dlq_redis
     ports:
-      - "6380:6379"
+      - "6390"
+    networks:
+      - internal-network
 
-  jaeger:
+  tracing:
     image: jaegertracing/all-in-one:latest
     ports:
-      - "4318:4318"
-      - "16686:16686"
+      - "14268"
+      - "16685"
+    networks:
+      - internal-network
+
+networks:
+  internal-network:
+    driver: bridge
