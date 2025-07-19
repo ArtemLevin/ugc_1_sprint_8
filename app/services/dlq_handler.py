@@ -10,10 +10,11 @@ class DLQHandler:
         self.queue_key = "dlq_kafka"
         self.max_retries = 3
 
-    async def save_event(self, message):
-        message["retry_attempt"] = message.get("retry_attempt", 0) + 1
-        await self.redis_service.rpush(self.queue_key, json.dumps(message))
-        logger.warning(f"Message saved to DLQ", queue_size=await self.redis_service.llen(self.queue_key))
+    async def save_messages(self, messages):
+        for msg in messages:
+            msg["retry_attempt"] = msg.get("retry_attempt", 0) + 1
+            await self.redis_service.rpush(self.queue_key, json.dumps(msg))
+        logger.warning(f"{len(messages)} messages saved to DLQ", queue_size=await self.redis_service.llen(self.queue_key))
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
     async def retry_message(self, raw_msg):

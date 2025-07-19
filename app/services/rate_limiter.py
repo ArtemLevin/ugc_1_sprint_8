@@ -1,8 +1,11 @@
-from app.core.config import settings
-from app.core.logger import get_logger
 import asyncio
+from pathlib import Path
+from app.core.logger import get_logger
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = get_logger(__name__)
+
+LUA_SCRIPT_PATH = Path(__file__).parent.parent / "utils" / "lua" / "rate_limiting.lua"
 
 
 class RedisLeakyBucketRateLimiter:
@@ -11,40 +14,45 @@ class RedisLeakyBucketRateLimiter:
         self.rate = rate or settings.rate_limit.rate_limit
         self.capacity = capacity or settings.rate_limit.rate_limit_window
         self.window = settings.rate_limit.rate_limit_window
+        self.script_sha = None  # SHA1 хэш скрипта в Redis
+        self.script_loaded = False
+
+    async def load_script(self):
+        if not self.script_loaded:
+            script_content = self._read_script()
+            self.script_sha = await self._load_script_to_redis(script_content)
+            self.script_loaded = True
+
+    def _read_script(self):
+        with open(LUA_SCRIPT_PATH, 'r') as f:
+            return f.read()
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+    async def _load_script_to_redis(self, script):
+        client = await self.redis_pool.get_client()
+        sha = await client.script_load(script)
+        return sha
 
     async def allow_request(self, identifier: str) -> bool:
+        await self.load_script()
+
         key = f"rate_limit:{identifier}"
         now = asyncio.get_event_loop().time()
-
         now_ms = now * 1000
         window_ms = self.window * 1000
 
-        lua_script = """
-        local key = KEYS[1]
-        local rate = tonumber(ARGV[1])
-        local capacity = tonumber(ARGV[2])
-        local now = tonumber(ARGV[3])
-        local window = tonumber(ARGV[4])
-
-        -- Удаляем устаревшие записи (в миллисекундах)
-        redis.call('ZREMRANGEBYSCORE', key, 0, now - window)
-
-        local current_tokens = redis.call('ZCARD', key)
-        if current_tokens < capacity then
-            redis.call('ZADD', key, now, now)
-            return 1
-        else
-            return 0
-        end
-        """
-
         try:
-            allowed = await self.redis_pool.get_client().eval(
-                lua_script,
-                keys=[key],
-                args=[self.rate, self.capacity, now_ms, window_ms]
-            )
+            allowed = await self._execute_script(key, now_ms, window_ms)
             return bool(int(allowed))
         except Exception as e:
             logger.error("Rate limit error", error=str(e))
             return False
+
+    async def _execute_script(self, key, now_ms, window_ms):
+        client = await self.redis_pool.get_client()
+        result = await client.evalsha(
+            self.script_sha,
+            keys=[key],
+            args=[self.rate, self.capacity, now_ms, window_ms]
+        )
+        return result
