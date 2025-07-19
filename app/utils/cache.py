@@ -10,6 +10,12 @@ logger = get_logger(__name__)
 
 retry_handler = RetryHandler(max_retries=3, base_delay=1, max_delay=10)
 
+def redis_command(func):
+    async def wrapper(self, *args, **kwargs):
+        client = await self.get_client()
+        return await func(self, client, *args, **kwargs)
+    return wrapper
+
 class RedisService:
     def __init__(self, url=None, max_connections=10, max_retries=3):
         self.url = url or settings.redis.redis_url
@@ -28,30 +34,33 @@ class RedisService:
                 raise
         return self._client
 
-    async def get(self, key):
-        client = await self.get_client()
+    @redis_command
+    async def get(self, client, key):
         return await client.get(key)
 
-    async def set(self, key, value):
-        client = await self.get_client()
+    @redis_command
+    async def set(self, client, key, value):
         return await client.set(key, value)
 
-    async def setex(self, key, ttl, value):
-        client = await self.get_client()
+    @redis_command
+    async def setex(self, client, key, ttl, value):
         return await client.setex(key, ttl, value)
 
-    async def rpush(self, key, value):
-        client = await self.get_client()
+    @redis_command
+    async def rpush(self, client, key, value):
         return await client.rpush(key, value)
 
-    async def lpop(self, key):
-        client = await self.get_client()
+    @redis_command
+    async def lpop(self, client, key):
         return await client.lpop(key)
 
-    async def llen(self, key):
-        client = await self.get_client()
+    @redis_command
+    async def llen(self, client, key):
         return await client.llen(key)
 
     async def close(self):
         if self._client:
             await self._client.close()
+            logger.info("Redis connection closed")
+        else:
+            logger.warning("Redis client was not initialized, nothing to close")

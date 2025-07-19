@@ -1,10 +1,10 @@
 from dependency_injector import containers, providers
 from app.utils.cache import RedisPool
 from app.services.rate_limiter import RedisLeakyBucketRateLimiter
-from app.services.kafka_producer import BufferedKafkaProducer
 from app.services.event_processor import EventProcessor
 from app.services.duplicate_checker import DuplicateChecker
 from app.services.dlq_handler import DLQHandler
+from app.services.kafka_producer import BufferedKafkaProducer
 from app.core.config import settings
 
 class Container(containers.DeclarativeContainer):
@@ -39,7 +39,7 @@ class Container(containers.DeclarativeContainer):
         bootstrap_server=settings.kafka.kafka_bootstrap_server,
         topic=settings.kafka.kafka_topic,
         buffer_size=settings.kafka.kafka_max_batch_size,
-        flush_interval=5,
+        flush_interval=settings.kafka.kafka_flush_interval,
         send_timeout=settings.kafka.kafka_send_timeout
     )
 

@@ -7,6 +7,7 @@ class KafkaSettings(BaseSettings):
     kafka_send_timeout: int = Field(default=5, env="KAFKA_SEND_TIMEOUT")
     kafka_max_batch_size: int = Field(default=16384, env="KAFKA_MAX_BATCH_SIZE")
     kafka_request_size: int = Field(default=1048576, env="KAFKA_REQUEST_SIZE")
+    kafka_flush_interval: int = Field(default=5, env="KAFKA_FLUSH_INTERVAL")
 
 class RedisSettings(BaseSettings):
     redis_url: str = Field(default="redis://cache:6379", env="REDIS_URL")

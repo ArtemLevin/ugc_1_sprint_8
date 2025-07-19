@@ -16,4 +16,8 @@ async def track_event_route(event_processor=Provide['event_processor']):
                      raw_data=data)
         return jsonify({"error": "Invalid input"}), 400
 
-    return await event_processor.process_event(event)
+    result = await event_processor.process_event(event)
+    logger.info("Event processed successfully",
+                event_type=event.event_type,
+                user_id=str(event.user_id))
+    return jsonify(result[0]), result[1]

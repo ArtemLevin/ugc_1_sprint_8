@@ -49,7 +49,7 @@ class KafkaConnection:
                 topic=topic
             )
             metadata = await future
-            return metadata  # или просто return True
+            return metadata
         except Exception as e:
             logger.error("Kafka send error", error=str(e))
             raise
