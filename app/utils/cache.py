@@ -4,7 +4,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = get_logger(__name__)
 
-class RedisPool:
+class RedisService:
     def __init__(self, url=None, max_connections=10, max_retries=3):
         self.url = url or settings.redis.redis_url
         self.max_connections = max_connections or settings.redis.redis_max_connections
@@ -21,6 +21,30 @@ class RedisPool:
                 logger.error("Failed to connect to Redis", error=str(e))
                 raise
         return self._client
+
+    async def get(self, key):
+        client = await self.get_client()
+        return await client.get(key)
+
+    async def set(self, key, value):
+        client = await self.get_client()
+        return await client.set(key, value)
+
+    async def setex(self, key, ttl, value):
+        client = await self.get_client()
+        return await client.setex(key, ttl, value)
+
+    async def rpush(self, key, value):
+        client = await self.get_client()
+        return await client.rpush(key, value)
+
+    async def lpop(self, key):
+        client = await self.get_client()
+        return await client.lpop(key)
+
+    async def llen(self, key):
+        client = await self.get_client()
+        return await client.llen(key)
 
     async def close(self):
         if self._client:
