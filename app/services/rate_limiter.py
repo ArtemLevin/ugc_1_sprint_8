@@ -1,9 +1,15 @@
 import asyncio
 from pathlib import Path
+
+from app.core.config import settings
 from app.core.logger import get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.utils.retry import RetryHandler
+
 logger = get_logger(__name__)
+
+retry_handler = RetryHandler(max_retries=3, base_delay=1, max_delay=10)
 
 LUA_SCRIPT_PATH = Path(__file__).parent.parent / "utils" / "lua" / "rate_limiting.lua"
 
@@ -14,7 +20,7 @@ class RedisLeakyBucketRateLimiter:
         self.rate = rate or settings.rate_limit.rate_limit
         self.capacity = capacity or settings.rate_limit.rate_limit_window
         self.window = settings.rate_limit.rate_limit_window
-        self.script_sha = None  # SHA1 хэш скрипта в Redis
+        self.script_sha = None
         self.script_loaded = False
 
     async def load_script(self):
@@ -27,7 +33,7 @@ class RedisLeakyBucketRateLimiter:
         with open(LUA_SCRIPT_PATH, 'r') as f:
             return f.read()
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+    @retry_handler
     async def _load_script_to_redis(self, script):
         client = await self.redis_pool.get_client()
         sha = await client.script_load(script)

@@ -1,8 +1,14 @@
 import json
+
+from app.core.config import settings
 from app.core.logger import get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.utils.retry import RetryHandler
+
 logger = get_logger(__name__)
+
+retry_handler = RetryHandler(max_retries=3, base_delay=1, max_delay=10)
 
 class DLQHandler:
     def __init__(self, redis_service):
@@ -16,7 +22,7 @@ class DLQHandler:
             await self.redis_service.rpush(self.queue_key, json.dumps(msg))
         logger.warning(f"{len(messages)} messages saved to DLQ", queue_size=await self.redis_service.llen(self.queue_key))
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+    @retry_handler
     async def retry_message(self, raw_msg):
         msg = json.loads(raw_msg)
         producer = AIOKafkaProducer(bootstrap_servers=settings.kafka.kafka_bootstrap_server)

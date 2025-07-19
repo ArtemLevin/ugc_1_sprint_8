@@ -1,8 +1,14 @@
 import redis.asyncio as redis
+
+from app.core.config import settings
 from app.core.logger import get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.utils.retry import RetryHandler
+
 logger = get_logger(__name__)
+
+retry_handler = RetryHandler(max_retries=3, base_delay=1, max_delay=10)
 
 class RedisService:
     def __init__(self, url=None, max_connections=10, max_retries=3):
@@ -11,7 +17,7 @@ class RedisService:
         self.max_retries = max_retries or settings.redis.redis_retry_attempts
         self._client = None
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+    @retry_handler
     async def get_client(self):
         if not self._client:
             try:

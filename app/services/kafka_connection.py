@@ -1,18 +1,22 @@
-import aiokafka
+import json
+
 from aiokafka import AIOKafkaProducer
+
+from app.core.config import settings
 from app.core.logger import get_logger
-from tenacity import retry, stop_after_attempt, wait_exponential
+from app.utils.retry import RetryHandler
 
 logger = get_logger(__name__)
 
+retry_handler = RetryHandler(max_retries=3, base_delay=1, max_delay=10)
 
 class KafkaConnection:
     def __init__(self, bootstrap_server=None):
-        self.bootstrap_server = bootstrap_server or settings.kafka.kafka_bootstrap_server
+        self.bootstrap_server = bootstrap_server
         self.producer = None
         self.connected = False
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+    @retry_handler
     async def connect(self):
         try:
             self.producer = AIOKafkaProducer(
@@ -35,11 +39,10 @@ class KafkaConnection:
             self.connected = False
             logger.info("Disconnected from Kafka")
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
+    @retry_handler
     async def send_batch(self, batch, topic):
         if not self.connected:
             await self.connect()
-
         try:
             future = await self.producer.send_batch(
                 [(msg, None) for msg in batch],

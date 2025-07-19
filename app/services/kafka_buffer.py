@@ -1,4 +1,6 @@
 import asyncio
+
+from app.core.config import settings
 from app.core.logger import get_logger
 from app.services.dlq_handler import DLQHandler
 
