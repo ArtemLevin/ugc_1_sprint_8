@@ -2,9 +2,7 @@ import aiokafka
 from aiokafka import AIOKafkaProducer
 import json
 import asyncio
-from app.core.config import KafkaSettings
 from app.core.logger import get_logger
-from app.core.tracing import add_event_attributes
 from app.services.dlq_handler import DLQHandler
 
 logger = get_logger(__name__)

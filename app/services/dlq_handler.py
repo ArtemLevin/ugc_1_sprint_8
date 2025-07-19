@@ -1,7 +1,5 @@
 import json
-import asyncio
 from aiokafka import AIOKafkaProducer
-from app.core.config import KafkaSettings
 from app.core.logger import get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential
 
