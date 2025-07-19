@@ -1,51 +1,60 @@
 from flask import Flask
+
+from app.core.logger import get_logger
 from flask.async import AsyncFlask
-from app.core.config import KafkaSettings, RedisSettings, RateLimitSettings
+from app.core.config import settings
 from app.core.tracing import setup_tracing
 from app.core.health import register_health_check
 from app.services.kafka_producer import BufferedKafkaProducer
 from app.services.rate_limiter import RedisLeakyBucketRateLimiter
 from app.utils.cache import RedisPool
-from app.routes import track_event
-import asyncio
+from app.routes import track_event_route
 import logging
 
-def create_app():
+
+def create_app(redis_pool=None, rate_limiter=None, kafka_producer=None):
     app = AsyncFlask(__name__)
     setup_tracing(app)
     register_health_check(app)
 
-    logging.basicConfig(level=logging.INFO)
-
-    kafka_settings = KafkaSettings()
-    redis_settings = RedisSettings()
-    rate_limit_settings = RateLimitSettings()
-
-    redis_pool = RedisPool(url=redis_settings.redis_url, max_connections=redis_settings.redis_max_connections)
-    rate_limiter = RedisLeakyBucketRateLimiter(
-        redis_pool=redis_pool,
-        rate=rate_limit_settings.rate,
-        capacity=rate_limit_settings.capacity
+    logging.basicConfig(
+        level=getattr(logging, settings.app.app_debug.upper()) if isinstance(settings.app.app_debug, str) else (
+            logging.DEBUG if settings.app.app_debug else logging.INFO),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
-    kafka_producer = BufferedKafkaProducer(
-        bootstrap_server=kafka_settings.kafka_bootstrap_server,
-        topic=kafka_settings.kafka_topic,
-        buffer_size=kafka_settings.kafka_max_batch_size,
-        send_timeout=kafka_settings.kafka_send_timeout
-    )
+
+    logger = get_logger()
+
+    if not redis_pool:
+        redis_pool = RedisPool()
+
+    if not rate_limiter:
+        rate_limiter = RedisLeakyBucketRateLimiter(redis_pool)
+
+    if not kafka_producer:
+        kafka_producer = BufferedKafkaProducer(
+            bootstrap_server=settings.kafka.kafka_bootstrap_server,
+            topic=settings.kafka.kafka_topic
+        )
 
     @app.route('/api/v1/events/track', methods=['POST'])
-    async def track_event_route():
-        return await track_event(redis_pool, rate_limiter, kafka_producer)
+    async def track_event():
+        return await track_event_route(redis_pool, rate_limiter, kafka_producer)
 
     @app.before_first_request
     async def initialize():
-        await redis_pool.get_client()
-        await kafka_producer.start()
-        asyncio.create_task(kafka_producer.start_dlq_retry_task())
+        logger.info("Initializing application")
+        try:
+            await redis_pool.get_client()
+            await kafka_producer.start()
+            logger.info("Application initialized successfully")
+        except Exception as e:
+            logger.error("Failed to initialize application", error=str(e))
+            raise
 
     @app.teardown_appcontext
     async def shutdown(exception):
+        logger.info("Shutting down application")
         await kafka_producer.stop()
         await redis_pool.close()
 
