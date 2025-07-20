@@ -15,7 +15,7 @@ LUA_SCRIPT_PATH = Path(__file__).parent.parent / "utils" / "lua" / "rate_limitin
 
 
 class RedisLeakyBucketRateLimiter:
-    def __init__(self, redis_pool, rate=None, capacity=None):
+    def __init__(self, redis_pool,  rate=None, capacity=None):
         self.redis_pool = redis_pool
         self.rate = rate or settings.rate_limit.rate_limit
         self.capacity = capacity or settings.rate_limit.rate_limit_window
