@@ -1,5 +1,5 @@
 from dependency_injector import containers, providers
-from app.utils.cache import RedisPool
+from app.utils.cache import RedisService
 from app.services.rate_limiter import RedisLeakyBucketRateLimiter
 from app.services.event_processor import EventProcessor
 from app.services.duplicate_checker import DuplicateChecker
@@ -7,32 +7,42 @@ from app.services.dlq_handler import DLQHandler
 from app.services.kafka_producer import BufferedKafkaProducer
 from app.core.config import settings
 
+
 class Container(containers.DeclarativeContainer):
+    """
+    Контейнер зависимостей, использующий dependency_injector для DI.
+    Содержит все основные сервисы и зависимости приложения.
+    """
+
     wiring_config = containers.WiringConfiguration(modules=["app.routes"])
 
-    redis_pool = providers.Singleton(
-        RedisPool,
-        url=settings.redis.redis_url,
-        max_connections=settings.redis.redis_max_connections,
-        max_retries=settings.redis.redis_retry_attempts
+    redis_service = providers.Singleton(
+        RedisService,
+        redis_settings=settings.redis
     )
 
     rate_limiter = providers.Factory(
         RedisLeakyBucketRateLimiter,
-        redis_pool=redis_pool,
+        redis_service=redis_service,
         rate=settings.rate_limit.rate_limit,
         capacity=settings.rate_limit.rate_limit_window
     )
 
-    dlq_handler = providers.Factory(
-        DLQHandler,
-        redis_client=redis_pool
-    )
 
     duplicate_checker = providers.Factory(
         DuplicateChecker,
-        redis_service=redis_pool
+        redis_service=redis_service,
+        cache_ttl=settings.duplicate_checker.cache_ttl
     )
+
+
+
+    dlq_handler = providers.Factory(
+        DLQHandler,
+        redis_service=redis_service,
+        queue_key=settings.dlq.dlq_queue_key
+    )
+
 
     kafka_producer = providers.Singleton(
         BufferedKafkaProducer,
