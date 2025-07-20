@@ -1,25 +1,61 @@
+"""
+Модуль для управления подключением к Kafka и отправкой сообщений.
+
+Содержит класс `KafkaConnection`, реализующий подключение к Kafka и отправку сообщений.
+"""
+
 import json
+from typing import List, Dict, Any, Optional
 from aiokafka import AIOKafkaProducer
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.utils.retry import RetryHandler
-from typing import List, Dict, Any
+from app.utils.cache import RedisService
+
 logger = get_logger(__name__)
-retry_handler = RetryHandler(max_retries=3, base_delay=1, max_delay=10)
+
 
 class KafkaConnection:
-    def __init__(
-        self,
-        bootstrap_server: str | None= None,
-        max_request_size: int |None = None
-    ):
-        self.bootstrap_server = bootstrap_server or settings.kafka.kafka_bootstrap_server
-        self.max_request_size = max_request_size or settings.kafka.kafka_request_size
-        self.producer = None
-        self.connected = False
+    """
+    Класс для управления подключением к Kafka и отправкой сообщений.
 
-    @retry_handler
+    Attributes:
+        bootstrap_server: Адрес Kafka-брокера.
+        max_request_size: Максимальный размер запроса.
+        producer: Активный продюсер Kafka.
+        connected: Флаг, указывающий, установлено ли соединение.
+    """
+
+    def __init__(
+            self,
+            bootstrap_server: str | None = None,
+            max_request_size: int | None = None
+    ):
+        """
+        Инициализирует соединение с Kafka.
+
+        Args:
+            bootstrap_server: Адрес Kafka-брокера. Если не указан, используется значение из настроек.
+            max_request_size: Максимальный размер запроса. Если не указан, используется значение из настроек.
+        """
+        self.bootstrap_server = bootstrap_server or settings.kafka.bootstrap_server
+        self.max_request_size = max_request_size or settings.kafka.request_size
+        self.producer: AIOKafkaProducer | None = None
+        self.connected = False
+        logger.info(
+            "KafkaConnection initialized",
+            bootstrap_server=self.bootstrap_server,
+            max_request_size=self.max_request_size
+        )
+
+    @RetryHandler(max_retries=3, base_delay=1, max_delay=10)
     async def connect(self) -> None:
+        """
+        Подключается к Kafka и инициализирует продюсера.
+
+        Raises:
+            Exception: Если подключение к Kafka не удалось.
+        """
         try:
             logger.info("Connecting to Kafka", bootstrap_server=self.bootstrap_server)
             self.producer = AIOKafkaProducer(
@@ -37,15 +73,32 @@ class KafkaConnection:
             raise
 
     async def disconnect(self) -> None:
+        """
+        Закрывает соединение с Kafka.
+        """
         if self.producer:
             await self.producer.stop()
             self.connected = False
             logger.info("Disconnected from Kafka")
 
-    @retry_handler
-    async def send_batch(self, batch: List[Dict[str, Any]], topic: str) -> Any | None:
+    @RetryHandler(max_retries=3, base_delay=1, max_delay=10)
+    async def send_batch(self, batch: List[Dict[str, Any]], topic: str) -> Any:
+        """
+        Отправляет батч сообщений в Kafka.
+
+        Args:
+            batch: Список сообщений для отправки.
+            topic: Топик Kafka для отправки.
+
+        Returns:
+            Результат отправки (метаданные оффсета).
+
+        Raises:
+            Exception: Если отправка сообщения в Kafka не удалась.
+        """
         if not self.connected:
             await self.connect()
+
         try:
             logger.debug("Sending batch to Kafka", size=len(batch), topic=topic)
             future = await self.producer.send_batch(
@@ -53,8 +106,54 @@ class KafkaConnection:
                 topic=topic
             )
             metadata = await future
-            logger.info("Batch sent to Kafka", size=len(batch), topic=topic, offset=metadata.base_offset)
+            logger.info(
+                "Batch sent to Kafka",
+                size=len(batch),
+                topic=topic,
+                offset=metadata.base_offset
+            )
             return metadata
         except Exception as e:
-            logger.error("Kafka send error", error=str(e), topic=topic, batch_size=len(batch))
+            logger.error(
+                "Kafka send error",
+                error=str(e),
+                topic=topic,
+                batch_size=len(batch)
+            )
+            raise
+
+    async def send(self, message: Dict[str, Any], topic: str) -> None:
+        """
+        Отправляет одно сообщение в Kafka.
+
+        Args:
+            message: Сообщение для отправки.
+            topic: Топик Kafka для отправки.
+
+        Raises:
+            Exception: Если отправка сообщения в Kafka не удалась.
+        """
+        if not self.connected:
+            await self.connect()
+
+        try:
+            logger.debug("Sending message to Kafka", message_id=message.get("id"), topic=topic)
+            future = await self.producer.send(
+                topic,
+                value=json.dumps(message).encode('utf-8')
+            )
+            metadata = await future
+            logger.info(
+                "Message sent to Kafka",
+                message_id=message.get("id"),
+                topic=topic,
+                offset=metadata.offset
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to send message to Kafka",
+                error=str(e),
+                message=message,
+                topic=topic
+            )
             raise
