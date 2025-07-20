@@ -5,9 +5,21 @@ from dependency_injector.wiring import inject, Provide
 
 logger = get_logger(__name__)
 
+
 @inject
 async def track_event_route(event_processor=Provide['event_processor']):
+    """
+    Обработчик эндпоинта /api/v1/events/track.
+
+    Принимает событие от пользователя, валидирует его,
+    обрабатывает через цепочку (дубликаты → рейт-лимит → Kafka) и возвращает ответ.
+
+    :param event_processor: внедрённый EventProcessor через DI
+    :return: JSON-ответ и статус
+    """
+
     data = request.get_json()
+
     try:
         event = Event(**data)
     except Exception as e:
@@ -16,8 +28,23 @@ async def track_event_route(event_processor=Provide['event_processor']):
                      raw_data=data)
         return jsonify({"error": "Invalid input"}), 400
 
-    result = await event_processor.process_event(event)
+    logger.info("Received event",
+                event_type=event.event_type,
+                user_id=str(event.user_id),
+                session_id=str(event.session_id))
+
+    try:
+        # Обрабатываем событие через цепочку
+        result = await event_processor.process_event(event)
+    except Exception as e:
+        logger.error("Unexpected error during event processing",
+                     error=str(e),
+                     event_type=event.event_type,
+                     user_id=str(event.user_id))
+        return jsonify({"error": "Internal server error"}), 500
+
     logger.info("Event processed successfully",
                 event_type=event.event_type,
                 user_id=str(event.user_id))
+
     return jsonify(result[0]), result[1]
