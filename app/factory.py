@@ -1,5 +1,5 @@
 from flask import Flask
-from flask.async import AsyncFlask
+from flask import AsyncFlask
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.core.tracing import setup_tracing
