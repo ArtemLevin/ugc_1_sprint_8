@@ -1,5 +1,8 @@
 from dependency_injector.wiring import inject, Provide
 from flask import Flask
+from flask import Flask
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.core.tracing import setup_tracing
@@ -14,10 +17,15 @@ logger = get_logger(__name__)
 class AppFactory:
     def __init__(self):
         self.app: Flask = Flask(__name__)
-        # Создаём DI-контейнер
         self.container = Container()
-        # Привязываем провайдеры к модулям с @inject/Provide
         self.container.wire(packages=["app"])
+
+        # Инициализация Limiter
+        self.limiter = Limiter(
+            app=self.app,
+            key_func=get_remote_address,
+            default_limits=["200 per minute", "50 per second"]
+        )
 
     def configure_logging(self):
         logging.basicConfig(
