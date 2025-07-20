@@ -1,17 +1,36 @@
 from flask import jsonify
+from typing import Optional, Any
+
 
 class AppError(Exception):
-    status_code = 500
-    message = "Internal error"
 
-    def __init__(self, message=None, status_code=None):
+    status_code = 500  
+    message = "Internal error" 
+    def __init__(
+            self,
+            message: str | None = None,
+            status_code: int | None = None,
+            extra: dict[str, Any] | None = None
+    ):
         if message:
             self.message = message
         if status_code:
             self.status_code = status_code
+        self.extra = extra or {}
+
+        super().__init__(self.message)
 
     def to_response(self):
-        return jsonify({"error": self.message}), self.status_code
+        """
+        Преобразует ошибку в Flask-ответ с JSON-телом и статус-кодом.
+
+        :return: кортеж (JSON-ответ, HTTP-статус)
+        """
+        response = {
+            "error": self.message,
+            **self.extra  
+        }
+        return jsonify(response), self.status_code
 
 
 class RateLimitExceeded(AppError):
@@ -22,3 +41,11 @@ class RateLimitExceeded(AppError):
 class DuplicateEvent(AppError):
     status_code = 409
     message = "Event is duplicate"
+
+
+class KafkaSendError(AppError):
+    status_code = 503
+    message = "Failed to send event"
+
+    def __init__(self, message: str | None = None, status_code: int | None = None):
+        super().__init__(message=message, status_code=status_code, extra={"retry_later": True})
