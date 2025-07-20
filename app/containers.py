@@ -1,72 +1,78 @@
-"""
-Модуль для настройки и управления зависимостями через DI-контейнер.
-
-Содержит класс `Container`, использующий `dependency_injector` для внедрения зависимостей.
-"""
-
 from dependency_injector import containers, providers
-from app.utils.cache import RedisService
-from app.services.rate_limiter import RedisLeakyBucketRateLimiter
-from app.services.event_processor import EventProcessor
-from app.services.duplicate_checker import DuplicateChecker
-from app.services.dlq_handler import DLQHandler
-from app.services.kafka_producer import BufferedKafkaProducer
+
 from app.core.config import settings
+from app.utils.cache import RedisService
+from app.repositories.redis_repository import RedisRepository
+from app.models.event import Event
+from app.services.duplicate_checker import DuplicateChecker
+from app.services.rate_limiter_service import RateLimiterService
+from app.services.rate_limiter import RedisLeakyBucketRateLimiter
+from app.services.kafka_producer import BufferedKafkaProducer
+from app.services.dlq_handler import DLQHandler
+from app.services.event_processor import EventProcessor
 
 
 class Container(containers.DeclarativeContainer):
     """
-    Контейнер зависимостей, использующий `dependency_injector` для внедрения зависимостей.
-
-    Attributes:
-        wiring_config: Конфигурация для автоматического подключения зависимостей.
-        redis_service: Сервис для работы с Redis.
-        rate_limiter: Сервис для проверки рейт-лимита.
-        duplicate_checker: Сервис для проверки дубликатов событий.
-        dlq_handler: Обработчик DLQ для сохранения неотправленных сообщений.
-        kafka_producer: Продюсер Kafka с буферизацией.
-        event_processor: Сервис для обработки событий.
+    DI-контейнер для всех сквозных зависимостей.
     """
 
-    wiring_config = containers.WiringConfiguration(modules=["app.routes"])
-
-    redis_service: providers.Singleton[RedisService] = providers.Singleton(
-        RedisService,
-        redis_settings=settings.redis
+    wiring_config = containers.WiringConfiguration(
+        modules=["app.routes"]
     )
 
-    rate_limiter: providers.Factory[RedisLeakyBucketRateLimiter] = providers.Factory(
+    # Конфигурация приложения из pydantic-settings
+    config = providers.Object(settings)
+
+    # RedisService для кешей, rate-limiter и DLQ
+    redis_service = providers.Singleton(RedisService)
+
+    # Репозиторий для хранения обработанных событий
+    event_repository = providers.Factory(
+        RedisRepository,
+        redis_service=redis_service,
+        model=Event
+    )
+
+    # Сервис проверки дубликатов
+    duplicate_checker = providers.Singleton(
+        DuplicateChecker,
+        cache_repository=event_repository,
+        cache_ttl=3600  # или settings.redis.default_ttl
+    )
+
+    # Конкретный leaky-bucket-лимитер (реализация на Lua)
+    rate_limiter = providers.Singleton(
         RedisLeakyBucketRateLimiter,
         redis_service=redis_service,
-        rate=settings.rate_limit.rate_limit,
-        capacity=settings.rate_limit.rate_limit_window
+        limit=settings.rate_limit,
+        window=settings.rate_limit_window
     )
 
-    duplicate_checker: providers.Factory[DuplicateChecker] = providers.Factory(
-        DuplicateChecker,
-        redis_service=redis_service,
-        cache_ttl=settings.duplicate_checker.cache_ttl
+    # Сервис проверки rate-limit
+    rate_limiter_service = providers.Singleton(
+        RateLimiterService,
+        rate_limiter=rate_limiter
     )
 
-    dlq_handler: providers.Factory[DLQHandler] = providers.Factory(
+    # DLQ-handler для неуспешных отправок
+    dlq_handler = providers.Singleton(
         DLQHandler,
         redis_service=redis_service,
         queue_key=settings.dlq.dlq_queue_key
     )
 
-    kafka_producer: providers.Singleton[BufferedKafkaProducer] = providers.Singleton(
+    # Буферизованный Kafka-продюсер
+    kafka_producer = providers.Singleton(
         BufferedKafkaProducer,
-        bootstrap_server=settings.kafka.bootstrap_server,
-        topic=settings.kafka.topic,
-        buffer_size=settings.kafka.max_batch_size,
-        flush_interval=settings.kafka.flush_interval,
-        send_timeout=settings.kafka.send_timeout
+        redis_service=redis_service
     )
 
-    event_processor: providers.Factory[EventProcessor] = providers.Factory(
+    # Основной процессор событий
+    event_processor = providers.Factory(
         EventProcessor,
         duplicate_checker=duplicate_checker,
-        rate_limiter=rate_limiter,
+        rate_limiter=rate_limiter_service,
         kafka_sender=kafka_producer,
         dlq_handler=dlq_handler
     )
