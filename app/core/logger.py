@@ -8,7 +8,7 @@
 import structlog
 from opentelemetry import trace
 from app.core.config import settings
-from typing import Optional, Dict
+from typing import Dict
 import logging
 from opentelemetry.trace import SpanContext, TraceFlags
 
