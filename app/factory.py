@@ -2,7 +2,6 @@ from dependency_injector.wiring import inject, Provide
 from flask import Flask
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_limiter.storage import RedisStorage
 from redis import from_url
 from app.core.config import settings
 from app.core.logger import get_logger
@@ -22,11 +21,10 @@ class AppFactory:
         self.container = Container()
         self.container.wire(packages=["app"])
 
-        redis_conn = from_url(settings.redis.url)
         self.limiter = Limiter(
             app=self.app,
             key_func=get_remote_address,
-            storage=RedisStorage(redis_conn),
+            storage_uri=settings.redis.url,
             default_limits=["200 per minute", "50 per second"]
         )
 
