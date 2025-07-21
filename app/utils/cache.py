@@ -4,7 +4,7 @@
 """
 from functools import wraps
 from typing import Callable
-import redis.asyncio as redis
+import redis
 from pydantic import BaseModel
 from app.core.config import settings
 from app.core.logger import get_logger

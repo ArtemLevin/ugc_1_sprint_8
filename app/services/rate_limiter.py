@@ -57,9 +57,9 @@ class RedisLeakyBucketRateLimiter(RateLimiter):
     def __init__(
             self,
             redis_service: RedisService,
-            rate: Optional[int] = None,
-            capacity: Optional[int] = None,
-            window: Optional[int] = None
+            rate: int | None = None,
+            capacity: int | None = None,
+            window: int | None = None
     ):
         """
         Инициализирует RedisLeakyBucketRateLimiter.
@@ -72,8 +72,8 @@ class RedisLeakyBucketRateLimiter(RateLimiter):
         """
         self.redis_service = redis_service
         self.rate = rate or settings.rate_limit.rate_limit
-        self.capacity = capacity or settings.rate_limit.rate_limit_window
-        self.window = window or settings.rate_limit.rate_limit_window
+        self.capacity = capacity or settings.rate_limit.rate_limit
+        self.window = window or settings.rate_limit.window_seconds
         self.script_sha = None
         self.script_loaded = False
         self.lua_script = self._read_script()

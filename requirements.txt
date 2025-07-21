@@ -5,8 +5,7 @@ eventlet>=0.33.3
 
 aiokafka>=0.7.0
 
-redis>=4.6.0
-redis.asyncio>=0.1.0
+redis>=5.0.0
 
 pydantic>=2.0
 pydantic-settings>=2.0

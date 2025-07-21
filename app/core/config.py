@@ -125,14 +125,6 @@ class Settings(BaseSettings):
     tracing: TracingSettings = TracingSettings()
     app: AppSettings = AppSettings()
 
-    @field_validator("app")
-    @classmethod
-    def validate_app_name(cls, v: AppSettings) -> AppSettings:
-        """Проверяет, что имя приложения не слишком длинное."""
-        if len(v.name) > 50:
-            logger.warning("Application name is too long", name=v.name)
-            raise ValueError("Application name must be less than 50 characters")
-        return v
 
 
 settings = Settings()

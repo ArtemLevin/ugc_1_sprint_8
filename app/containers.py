@@ -45,8 +45,8 @@ class Container(containers.DeclarativeContainer):
     rate_limiter = providers.Singleton(
         RedisLeakyBucketRateLimiter,
         redis_service=redis_service,
-        limit=settings.rate_limit,
-        window=settings.rate_limit_window
+        limit=settings.rate_limit.rate_limit,
+        window=settings.rate_limit.window_seconds
     )
 
     # Сервис проверки rate-limit

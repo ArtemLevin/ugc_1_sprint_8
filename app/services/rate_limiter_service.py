@@ -2,11 +2,13 @@
 from app.core.logger import get_logger
 from typing import Any
 
+from app.services.rate_limiter import RedisLeakyBucketRateLimiter
+
 logger = get_logger(__name__)
 
 
 class RateLimiterService:
-    def __init__(self, rate_limiter: "RedisLeakyBucketRateLimiter"):
+    def __init__(self, rate_limiter: RedisLeakyBucketRateLimiter):
         self.rate_limiter = rate_limiter
 
     async def check(self, event: Any) -> bool:
