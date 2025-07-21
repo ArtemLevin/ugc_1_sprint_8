@@ -81,46 +81,21 @@ class KafkaConnection:
             self.connected = False
             logger.info("Disconnected from Kafka")
 
-    @RetryHandler(max_retries=3, base_delay=1, max_delay=10)
-    async def send_batch(self, batch: List[Dict[str, Any]], topic: str) -> Any:
-        """
-        Отправляет батч сообщений в Kafka.
-
-        Args:
-            batch: Список сообщений для отправки.
-            topic: Топик Kafka для отправки.
-
-        Returns:
-            Результат отправки (метаданные оффсета).
-
-        Raises:
-            Exception: Если отправка сообщения в Kafka не удалась.
-        """
-        if not self.connected:
-            await self.connect()
-
-        try:
-            logger.debug("Sending batch to Kafka", size=len(batch), topic=topic)
-            future = await self.producer.send_batch(
-                [(json.dumps(msg).encode('utf-8'), None) for msg in batch],
-                topic=topic
-            )
-            metadata = await future
-            logger.info(
-                "Batch sent to Kafka",
-                size=len(batch),
-                topic=topic,
-                offset=metadata.base_offset
-            )
-            return metadata
-        except Exception as e:
-            logger.error(
-                "Kafka send error",
-                error=str(e),
-                topic=topic,
-                batch_size=len(batch)
-            )
-            raise
+    class KafkaConnection:
+        @RetryHandler(max_retries=3, base_delay=1, max_delay=10)
+        async def send_batch(self, batch: List[Dict[str, Any]], topic: str) -> Any:
+            if not self.connected:
+                await self.connect()
+            try:
+                import json
+                # records — список кортежей (key, value)
+                records = [(None, json.dumps(msg).encode("utf-8")) for msg in batch]
+                metadata = await self.producer.send_batch(topic, records)
+                logger.info("Batch sent to Kafka", size=len(batch), topic=topic)
+                return metadata
+            except Exception as e:
+                logger.error("Kafka send_batch error", error=str(e), topic=topic)
+                raise
 
     async def send(self, message: Dict[str, Any], topic: str) -> None:
         """

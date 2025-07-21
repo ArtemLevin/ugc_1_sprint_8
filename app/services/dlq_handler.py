@@ -21,7 +21,7 @@ DEFAULT_RETRY_ATTEMPTS = 3
 DEFAULT_RETRY_DELAY = 1  # в секундах
 DEFAULT_RETRY_MAX_DELAY = 10  # в секундах
 DEFAULT_QUEUE_KEY = settings.dlq.dlq_queue_key
-DEFAULT_KAFKA_TOPIC = settings.kafka.kafka_topic
+DEFAULT_KAFKA_TOPIC = settings.kafka.topic
 DEFAULT_KAFKA_BOOTSTRAP_SERVER = settings.kafka.bootstrap_server
 
 

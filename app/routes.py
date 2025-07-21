@@ -29,38 +29,17 @@ def register_routes(app: Flask) -> None:
     )
 
 
-async def track_event_route(event_processor: EventProcessor) -> Tuple[Dict[str, Any], int]:
-    """
-    Обработчик маршрута `/api/v1/events/track`.
-
-    Принимает событие, валидирует его и передает на обработку в `event_processor`.
-
-    Returns:
-        JSON-ответ и HTTP-статус-код.
-    """
+async def track_event_route(event_processor):
     try:
-        # Получаем данные из запроса
         data = request.get_json()
-        logger.info("Received event data", data=data)
-
-        # Валидируем и создаем событие
         event = Event(**data)
-        logger.info(
-            "Received event",
-            event_type=event.event_type,
-            user_id=str(event.user_id),
-            session_id=str(event.session_id)
-        )
-
-        # Обрабатываем событие
-        result = await event_processor.process_event(event)
-        logger.info(
-            "Event processed successfully",
-            event_type=event.event_type,
-            user_id=str(event.user_id)
-        )
-
-        return jsonify(result[0]), result[1]
+        result, status = await event_processor.process_event(event)
+        return jsonify(result), status
+    except AppError as e:
+        return e.to_response()
+    except Exception as e:
+        logger.error("Unexpected", error=str(e), exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
 
     except AppError as e:
         # Обработка пользовательских ошибок

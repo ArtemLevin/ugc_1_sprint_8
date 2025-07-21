@@ -57,18 +57,10 @@ class KafkaBuffer:
             flush_interval=self.flush_interval
         )
 
-    async def start(self, connection: AIOKafkaProducer, topic: str):
-        """
-        Запускает цикл отправки сообщений.
-
-        Args:
-            connection: Активное соединение с Kafka.
-            topic: Топик Kafka для отправки сообщений.
-        """
+    async def start(self, connection: "KafkaConnection", topic: str):
         self.connection = connection
         self.topic = topic
         self.task = asyncio.create_task(self._flush_loop())
-        logger.info("KafkaBuffer started", topic=self.topic)
 
     async def stop(self):
         """
@@ -111,21 +103,11 @@ class KafkaBuffer:
         return batch
 
     async def _send_batch(self, batch: List[Dict[str, Any]]):
-        """
-        Отправляет батч сообщений в Kafka.
-
-        Args:
-            batch: Список сообщений для отправки.
-        """
         try:
             await self.connection.send_batch(batch, self.topic)
             logger.info("Batch sent to Kafka", size=len(batch), topic=self.topic)
         except Exception as e:
-            logger.warning(
-                "Failed to send batch to Kafka",
-                error=str(e),
-                size=len(batch)
-            )
+            logger.warning("Failed to send batch to Kafka", error=str(e), size=len(batch))
             await self.dlq_handler.save_messages(batch)
 
     async def _flush_queue(self):

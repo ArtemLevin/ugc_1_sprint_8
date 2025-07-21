@@ -1,14 +1,14 @@
 from app.utils.cache import RedisService
 from app.core.logger import get_logger
-from app.core.tracing import get_tracer
 from app.repositories.repository import CacheRepository
 from typing import TypeVar, Generic
 from pydantic import BaseModel
 import structlog
 from opentelemetry import trace
 
-logger = get_logger()
-tracer = get_tracer(__name__)
+logger = get_logger(__name__)
+tracer = trace.get_tracer(__name__)
+
 T = TypeVar("T", bound=BaseModel)
 
 class RedisRepository(CacheRepository[T], Generic[T]):

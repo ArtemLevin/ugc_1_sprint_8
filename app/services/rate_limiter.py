@@ -13,7 +13,8 @@ from app.core.logger import get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 from app.utils.retry import RetryHandler
 from app.utils.cache import RedisService
-from aioredis import RedisError
+from redis.exceptions import RedisError
+from redis.asyncio import Redis
 
 logger = get_logger(__name__)
 LUA_SCRIPT_PATH = Path(__file__).parent.parent / "utils" / "lua" / "rate_limiting.lua"

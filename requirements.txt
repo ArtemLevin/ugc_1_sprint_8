@@ -23,3 +23,5 @@ tenacity>=8.2.3
 dependency-injector>=4.0.0
 
 typing_extensions>=4.0.0
+
+xxhash>=3.0.0

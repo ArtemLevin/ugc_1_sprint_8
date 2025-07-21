@@ -65,7 +65,7 @@ class DLQSettings(BaseModel):
         queue_key: Ключ для хранения сообщений в Redis.
     """
     redis_url: str = Field(default="redis://dlq-cache:6379", validation_alias="DLQ_REDIS_URL")
-    queue_key: str = Field(default="dlq_kafka", validation_alias="DLQ_QUEUE_KEY")
+    dlq_queue_key: str = Field(default="dlq_kafka", validation_alias="DLQ_QUEUE_KEY")
 
 
 class RateLimitSettings(BaseModel):
@@ -87,7 +87,7 @@ class TracingSettings(BaseModel):
     Attributes:
         otlp_endpoint: URL для отправки трассировок.
     """
-    otlp_endpoint: str = Field(default="http://tracing:4318/v1/traces", validation_alias="OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_exporter_otlp_endpoint: str = Field(default="http://tracing:4318/v1/traces", env="OTEL_EXPORTER_OTLP_ENDPOINT")
 
 
 class AppSettings(BaseModel):

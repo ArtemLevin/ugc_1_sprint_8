@@ -84,25 +84,15 @@ class BufferedKafkaProducer:
         )
 
     async def start(self):
-        """
-        Запускает продюсера и буфер для отправки сообщений.
-        """
-        logger.info("Starting Kafka producer")
         await self.connection.connect()
-        await self.buffer.start(self.connection.producer, self.topic)
-        logger.info("Starting DLQ retry task")
+        await self.buffer.start(self.connection, self.topic)
         self.dlq_retry_task = asyncio.create_task(self._dlq_retry_loop())
 
     async def stop(self):
-        """
-        Останавливает продюсера и очищает ресурсы.
-        """
-        logger.info("Stopping Kafka producer")
         if self.dlq_retry_task:
             self.dlq_retry_task.cancel()
         await self.buffer.stop()
         await self.connection.disconnect()
-        logger.info("Kafka producer stopped")
 
     async def _dlq_retry_loop(self, interval: int = 60):
         """
@@ -134,18 +124,12 @@ class BufferedKafkaProducer:
             await self.dlq_handler.save_messages([message])
 
     async def send_immediately(self, message: Dict[str, Any]):
-        """
-        Отправляет сообщение в Kafka немедленно, минуя буфер.
-
-        Args:
-            message: Сообщение для отправки.
-        """
-        logger.debug("Sending message immediately", message_id=message.get("id"))
+        import json
         try:
-            await self.connection.producer.send(self.topic, value=message)
-        except KafkaError as e:
-            logger.error("Immediate Kafka send failed", error=str(e))
-            await self.dlq_handler.save_messages([message])
+            await self.connection.producer.send(
+                self.topic,
+                value=json.dumps(message).encode('utf-8')
+            )
         except Exception as e:
-            logger.error("Unexpected error during immediate send", error=str(e))
+            logger.error("Immediate Kafka send failed", error=str(e))
             await self.dlq_handler.save_messages([message])
