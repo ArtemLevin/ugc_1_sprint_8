@@ -5,12 +5,11 @@
 """
 
 import json
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from aiokafka import AIOKafkaProducer
 from app.core.config import settings
 from app.core.logger import get_logger
 from app.utils.retry import RetryHandler
-from app.utils.cache import RedisService
 
 logger = get_logger(__name__)
 

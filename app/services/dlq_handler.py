@@ -44,7 +44,7 @@ class DLQMessage:
 
 
     @property
-    def message_id(self) -> Optional[str]:
+    def message_id(self) -> str | None:
         """Возвращает ID сообщения, если он есть."""
         return self.data.get("id")
 
@@ -122,12 +122,12 @@ class DLQHandler:
     def __init__(
             self,
             redis_service: RedisService,
-            queue_key: Optional[str] = None,
+            queue_key: str | None = None,
             max_retries: int = DEFAULT_RETRY_ATTEMPTS,
             retry_delay: int = DEFAULT_RETRY_DELAY,
             max_delay: int = DEFAULT_RETRY_MAX_DELAY,
-            kafka_bootstrap_server: Optional[str] = None,
-            kafka_topic: Optional[str] = None
+            kafka_bootstrap_server: str | None = None,
+            kafka_topic: str | None = None
     ):
         self.redis_service = redis_service
         self.queue_key = queue_key or DEFAULT_QUEUE_KEY

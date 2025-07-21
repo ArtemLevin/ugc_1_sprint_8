@@ -5,7 +5,7 @@
 """
 
 from aiokafka import AIOKafkaProducer
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 from aiokafka.errors import KafkaError
 from app.core.config import settings
 from app.core.logger import get_logger

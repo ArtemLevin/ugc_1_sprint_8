@@ -21,7 +21,6 @@ class Container(containers.DeclarativeContainer):
         modules=["app.routes"]
     )
 
-    # Конфигурация приложения из pydantic-settings
     config = providers.Object(settings)
 
     # RedisService для кешей, rate-limiter и DLQ
@@ -41,7 +40,7 @@ class Container(containers.DeclarativeContainer):
         cache_ttl=3600  # или settings.redis.default_ttl
     )
 
-    # Конкретный leaky-bucket-лимитер (реализация на Lua)
+    # Конкретный leaky-bucket-лимитер
     rate_limiter = providers.Singleton(
         RedisLeakyBucketRateLimiter,
         redis_service=redis_service,

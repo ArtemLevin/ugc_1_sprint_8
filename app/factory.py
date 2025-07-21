@@ -7,7 +7,6 @@ from app.core.config import settings
 from app.core.logger import get_logger
 from app.core.tracing import setup_tracing
 from app.core.health import register_health_check
-from app.routes import track_event_route
 from app.containers import Container
 import logging
 import asyncio
@@ -69,11 +68,7 @@ class AppFactory:
                 self._initialized = True
                 logger.info("Initializing application (lazy before_first_request)")
                 try:
-                    # синхронно пингуем Redis
-                    # (если ваш RedisService.get_client().ping() — coroutine,
-                    #  то можно обернуть в asyncio.run)
                     asyncio.run(self.container.redis_service().get_client().ping())
-                    # и стартуем Kafka-продюсер
                     asyncio.run(self.container.kafka_producer().start())
                     logger.info("Initialization successful")
                 except Exception as e:
@@ -84,8 +79,6 @@ class AppFactory:
         @self.app.teardown_appcontext
         def shutdown(exc):
             logger.info("Shutting down application")
-            # останавливаем Kafka и закрываем Redis
-            # аналогично – через asyncio.run
             asyncio.run(self.container.kafka_producer().stop())
             asyncio.run(self.container.redis_service().close())
 

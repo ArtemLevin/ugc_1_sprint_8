@@ -8,11 +8,9 @@ from flask import Flask, request, jsonify
 from app.models.event import Event
 from app.core.logger import get_logger
 from app.core.errors import AppError
-from app.services.event_processor import EventProcessor
 from dependency_injector.wiring import inject, Provide
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from typing import Any, Dict, Tuple
 import structlog
 
 logger = get_logger(__name__)
@@ -42,7 +40,6 @@ async def track_event_route(event_processor):
         return jsonify({"error": "Internal server error"}), 500
 
     except AppError as e:
-        # Обработка пользовательских ошибок
         logger.warning(
             "Application error occurred",
             error=e.message,
@@ -53,7 +50,6 @@ async def track_event_route(event_processor):
         return e.to_response()
 
     except Exception as e:
-        # Обработка неожиданных ошибок
         logger.error(
             "Unexpected error during event processing",
             error=str(e),

@@ -7,7 +7,7 @@
 import asyncio
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Callable
 from app.core.config import settings
 from app.core.logger import get_logger
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type

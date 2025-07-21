@@ -1,4 +1,3 @@
-from typing import Optional
 from redis.asyncio import Redis
 from redis.exceptions import RedisError
 from app.core.config import settings
@@ -17,12 +16,10 @@ class RedisService:
         Ленивая инициализация клиента.
         """
         if self._client is None:
-            # settings.redis.url, e.g. "redis://cache:6379"
-            # max_connections — число коннектов в пуле
             self._client = Redis.from_url(
                 settings.redis.url,
                 max_connections=settings.redis.max_connections,
-                decode_responses=False  # если вам нужен байтовый ответ
+                decode_responses=False  # если нужен байтовый ответ
             )
         return self._client
 
@@ -33,7 +30,7 @@ class RedisService:
         if self._client:
             await self._client.close()
 
-    async def get(self, key: str) -> Optional[str]:
+    async def get(self, key: str) -> str | None:
         try:
             client = await self.get_client()
             return await client.get(key)
@@ -41,7 +38,7 @@ class RedisService:
             # логируем или пробрасываем дальше
             raise
 
-    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> bool:
+    async def set(self, key: str, value: str, ttl: int | None = None) -> bool:
         try:
             client = await self.get_client()
             if ttl:
@@ -64,7 +61,7 @@ class RedisService:
         except RedisError as e:
             raise
 
-    async def lpop(self, key: str) -> Optional[str]:
+    async def lpop(self, key: str) -> str | None:
         try:
             client = await self.get_client()
             return await client.lpop(key)

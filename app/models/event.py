@@ -5,7 +5,7 @@
 """
 
 from enum import StrEnum
-from typing import Dict, Any, List, Optional, Protocol, ClassVar
+from typing import Dict, Any, List, Protocol, ClassVar
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, model_validator
