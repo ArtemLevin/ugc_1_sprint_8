@@ -1,5 +1,6 @@
 Flask>=3.0.0
 Flask-Limiter>=3.0.0
+uvicorn>=0.20.0
 gunicorn>=21.2.0
 
 aiokafka>=0.7.0

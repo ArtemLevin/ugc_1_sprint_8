@@ -80,21 +80,21 @@ class KafkaConnection:
             self.connected = False
             logger.info("Disconnected from Kafka")
 
-    class KafkaConnection:
-        @RetryHandler(max_retries=3, base_delay=1, max_delay=10)
-        async def send_batch(self, batch: List[Dict[str, Any]], topic: str) -> Any:
-            if not self.connected:
-                await self.connect()
-            try:
-                import json
-                # records — список кортежей (key, value)
-                records = [(None, json.dumps(msg).encode("utf-8")) for msg in batch]
-                metadata = await self.producer.send_batch(topic, records)
-                logger.info("Batch sent to Kafka", size=len(batch), topic=topic)
-                return metadata
-            except Exception as e:
-                logger.error("Kafka send_batch error", error=str(e), topic=topic)
-                raise
+
+    @RetryHandler(max_retries=3, base_delay=1, max_delay=10)
+    async def send_batch(self, batch: List[Dict[str, Any]], topic: str) -> Any:
+        if not self.connected:
+            await self.connect()
+        try:
+            import json
+            # records — список кортежей (key, value)
+            records = [(None, json.dumps(msg).encode("utf-8")) for msg in batch]
+            metadata = await self.producer.send_batch(topic, records)
+            logger.info("Batch sent to Kafka", size=len(batch), topic=topic)
+            return metadata
+        except Exception as e:
+            logger.error("Kafka send_batch error", error=str(e), topic=topic)
+            raise
 
     async def send(self, message: Dict[str, Any], topic: str) -> None:
         """

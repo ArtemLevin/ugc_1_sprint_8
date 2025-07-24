@@ -32,7 +32,7 @@ services:
       wait-for-it.sh cache:6379 -t 60 -- \
       wait-for-it.sh message-broker:9092 -t 60 -- \
       wait-for-it.sh tracing:14268 -t 30 -- \
-      gunicorn -b 0.0.0.0:5000 app.main:app
+      gunicorn -b 0.0.0.0:5000 --worker-class uvicorn.workers.UvicornWorker app.main:app
       '
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
