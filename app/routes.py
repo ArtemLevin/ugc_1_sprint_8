@@ -17,27 +17,53 @@ from pydantic import ValidationError
 logger = get_logger(__name__)
 
 
-def register_routes(app: Flask) -> None:
+def register_routes(app: Flask, limiter: Limiter) -> None:
     """
-    Регистрирует маршрут /api/v1/events/track с помощью app.add_url_rule().
+    Регистрирует маршруты приложения.
 
-    Почему не @app.route()?
-    - Позволяет более гибко управлять порядком регистрации;
-    - Удобно для модульной архитектуры, где маршруты могут быть определены в другом месте;
-    - Можно динамически изменять поведение (например, отключать маршруты).
-
+    Args:
+        app: Экземпляр Flask-приложения.
+        limiter: Глобальный экземпляр Flask-Limiter.
     """
-    # Добавляем rate limit к маршруту
-    app.add_url_rule(
-        "/api/v1/events/track",
-        "track_event",
-        # Используем dependency-injector для внедрения event_processor
-        inject(track_event_route)(event_processor=Provide[Container.event_processor]),
-        methods=["POST"],
-        # Пример: 100 запросов в минуту, 20 в секунду
-        # Но: это создаёт отдельный экземпляр Limiter, который не связан с глобальным
-        limiter=Limiter(key_func=get_remote_address, default_limits=["100 per minute", "20 per second"])
-    )
+
+    @app.route("/api/v1/events/track", methods=["POST"])
+    @limiter.limit("100 per minute;20 per second")  # ✅ Используем глобальный лимитер
+    @inject
+    async def track_event_route(event_processor=Provide['event_processor']):
+        try:
+            data = request.get_json()
+            if not
+                logger.warning("Empty request body")
+                return jsonify({"error": "Empty request body"}), 400
+
+            event = Event(**data)
+            result, status = await event_processor.process_event(event)
+            return jsonify(result), status
+
+        except ValidationError as e:
+            logger.warning("Invalid event data", errors=e.errors())
+            return jsonify({"error": "Invalid data", "details": e.errors()}), 422
+
+        except AppError as e:
+            logger.warning(
+                "Application error occurred",
+                error=e.error.code,
+                message=e.error.message,
+                status_code=e._get_status_code(),  # Вызываем метод для получения кода
+                event_type=event.event_type if 'event' in locals() else None,
+                user_id=str(event.user_id) if 'event' in locals() else None
+            )
+            return e.to_response()
+
+        except Exception as e:
+            logger.error(
+                "Unexpected error during event processing",
+                error=str(e),
+                event_type=event.event_type if 'event' in locals() else None,
+                user_id=str(event.user_id) if 'event' in locals() else None,
+                exc_info=True
+            )
+            return jsonify({"error": "Internal server error"}), 500
 
 
 async def track_event_route(event_processor):

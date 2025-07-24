@@ -48,14 +48,8 @@ class AppFactory:
         register_health_check(self.app)
 
     def register_routes(self):
-        @self.app.route("/api/v1/events/track", methods=["POST"])
-        @self.limiter.limit("100 per minute;20 per second")
-        @inject
-        async def track_event(
-            event_processor=Provide[Container.event_processor]
-        ):
-            from app.routes import track_event_route
-            return await track_event_route(event_processor)
+        from app.routes import register_routes
+        register_routes(self.app, self.limiter)
 
     def register_lifecycle_hooks(self):
         # флаг, чтобы инициализировать только один раз
