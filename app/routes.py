@@ -12,6 +12,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import structlog
 from app.containers import Container
+from pydantic import ValidationError
 
 logger = get_logger(__name__)
 
@@ -73,6 +74,10 @@ async def track_event_route(event_processor):
         result, status = await event_processor.process_event(event)
 
         return jsonify(result), status
+
+    except ValidationError as e:
+        logger.warning("Invalid event data", errors=e.errors())
+        return jsonify({"error": "Invalid data", "details": e.errors()}), 422
 
     except AppError as e:
         # Ожидаемые прикладные ошибки: дубликат, рейт-лимит
