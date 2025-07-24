@@ -9,7 +9,7 @@ class RedisService:
     """
 
     def __init__(self):
-        self._client: Optional[Redis] = None
+        self._client: Redis | None = None
 
     async def get_client(self) -> Redis:
         """
