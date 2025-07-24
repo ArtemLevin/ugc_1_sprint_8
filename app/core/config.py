@@ -8,6 +8,7 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field, BaseModel, ConfigDict, field_validator
 import logging
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,28 @@ class DLQSettings(BaseModel):
     redis_url: str = Field(default="redis://dlq-cache:6379", validation_alias="DLQ_REDIS_URL")
     dlq_queue_key: str = Field(default="dlq_kafka", validation_alias="DLQ_QUEUE_KEY")
 
+class DuplicateCheckerSettings(BaseModel):
+    """
+    Настройки для сервиса проверки дубликатов (DuplicateChecker).
+
+    Attributes:
+        cache_ttl: Время жизни записи о событии в кэше (в секундах). По умолчанию 1 час.
+        key_prefix: Префикс для ключей Redis, используемых для хранения хэшей событий.
+    """
+    cache_ttl: int = Field(default=3600, validation_alias="DUPLICATE_CHECKER__CACHE_TTL", ge=1) # Минимум 1 секунда
+    key_prefix: str = Field(default="user_actions", validation_alias="DUPLICATE_CHECKER__KEY_PREFIX", min_length=1)
+
+    @field_validator('key_prefix')
+    @classmethod
+    def validate_key_prefix(cls, v: str) -> str:
+        """
+        Проверяет, что префикс ключа состоит только из допустимых символов.
+        Допустимые символы: буквы (a-z, A-Z), цифры (0-9), подчеркивание (_), дефис (-).
+        """
+        if not re.fullmatch(r"[a-zA-Z0-9_-]+", v):
+            raise ValueError('key_prefix must contain only letters, numbers, underscores, and hyphens')
+        return v
+
 
 class RateLimitSettings(BaseModel):
     """
@@ -120,6 +143,7 @@ class Settings(BaseSettings):
 
     kafka: KafkaSettings = KafkaSettings()
     redis: RedisSettings = RedisSettings()
+    duplicate_checker: DuplicateCheckerSettings = DuplicateCheckerSettings()
     dlq: DLQSettings = DLQSettings()
     rate_limit: RateLimitSettings = RateLimitSettings()
     tracing: TracingSettings = TracingSettings()

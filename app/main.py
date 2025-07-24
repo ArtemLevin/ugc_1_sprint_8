@@ -1,7 +1,28 @@
+"""
+Точка входа в приложение User Action Collector.
+Поддерживает:
+- Запуск через Hypercorn/ASGI (продакшен)
+- Локальную разработку с Uvicorn reload
+- Асинхронные обработчики и цепочку событий
+"""
+
 from app.factory import create_app
+
 app = create_app()
 
 if __name__ == "__main__":
-    app = create_app()
-    import eventlet
-    eventlet.wsgi.server(eventlet.listen(('', 5000)), app)
+    """
+    Запуск сервера напрямую (не через WSGI/ASGI-сервер).
+    Используется только при выполнении: python app/main.py
+    """
+    import uvicorn
+
+    uvicorn.run(
+        "app.main:app",
+        host="127.0.0.1",
+        port=5000,
+        reload=True,
+        log_level="info",
+        use_colors=True,
+        factory=False
+    )
