@@ -28,7 +28,7 @@ def generate_data(rows: int, logger: LoggerInterface) -> Iterator[Tuple[int, str
 
 def generate_dataframe_batch(rows: int, logger: LoggerInterface) -> Iterator[pd.DataFrame]:
     """
-    Генерирует батчи данных в формате DataFrame.
+    Генерирует батч данных в формате DataFrame.
 
     Использует ленивую генерацию для эффективного использования памяти
     при работе с большими объемами данных.
