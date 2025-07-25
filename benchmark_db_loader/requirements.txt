@@ -1,0 +1,8 @@
+clickhouse-driver
+psycopg2-binary
+vertica-python
+pandas
+numpy
+python-dotenv
+matplotlib
+seaborn
