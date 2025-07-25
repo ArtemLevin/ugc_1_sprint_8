@@ -1,0 +1,97 @@
+services:
+  clickhouse:
+    image: yandex/clickhouse-server:latest
+    container_name: benchmark_clickhouse
+    ports:
+      - "${CLICKHOUSE_PORT}:${CLICKHOUSE_PORT}"
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DATABASE}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  postgres:
+    image: postgres:15
+    container_name: benchmark_postgres
+    ports:
+      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+    environment:
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  vertica:
+    image: vertica/vertica-ce:latest
+    container_name: benchmark_vertica
+    ports:
+      - "${VERTICA_PORT}:${VERTICA_PORT}"
+    environment:
+      - APP_DB_USER=${VERTICA_USER}
+      - APP_DB_PASSWORD=${VERTICA_PASSWORD}
+    volumes:
+      - vertica_data:/data
+    healthcheck:
+      test: ["CMD", "vsql", "-U", "${VERTICA_USER}", "-c", "SELECT 1;"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  benchmark:
+    build: .
+    container_name: benchmark_runner
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      vertica:
+        condition: service_healthy
+    environment:
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DATABASE=${POSTGRES_DATABASE}
+      - VERTICA_HOST=${VERTICA_HOST}
+      - VERTICA_PORT=${VERTICA_PORT}
+      - VERTICA_USER=${VERTICA_USER}
+      - VERTICA_PASSWORD=${VERTICA_PASSWORD}
+      - VERTICA_DATABASE=${VERTICA_DATABASE}
+      - BENCHMARK_TABLE=${BENCHMARK_TABLE}
+      - DATA_ROWS=${DATA_ROWS}
+      - BATCH_SIZE=${BATCH_SIZE}
+      - LOG_LEVEL=${LOG_LEVEL}
+    volumes:
+      - .:/app
+      - benchmark_results:/app/results
+      - benchmark_plots:/app/plots
+    entrypoint: ["/app/scripts/wait-for-dbs.sh"]
+    command: ["python", "-m", "src.main"]
+
+volumes:
+  clickhouse_data:
+  postgres_data:
+  vertica_data:
+  benchmark_results:
+  benchmark_plots:
