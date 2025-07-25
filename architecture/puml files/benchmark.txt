@@ -1,0 +1,175 @@
+@startuml
+' Улучшенные настройки оформления
+skinparam packageStyle rectangle
+skinparam componentStyle uml2
+skinparam dpi 150
+skinparam shadowing false
+left to right direction
+
+' Цветовая схема
+skinparam component {
+    BackgroundColor<<core>> LightBlue
+    BackgroundColor<<service>> LightSkyBlue
+    BackgroundColor<<interface>> LightGreen
+    BackgroundColor<<implementation>> LightYellow
+    BackgroundColor<<external>> LightGray
+    BackgroundColor<<infrastructure>> LightCyan
+    BackgroundColor<<database>> LightPink
+    BackgroundColor<<storage>> LightSalmon
+}
+
+title Архитектура приложения Benchmark DB Loader
+
+' Группировка по слоям
+package "Ядро приложения" {
+    package "Точки входа" {
+        [Главное приложение] as main <<core>>
+        [Конфигурация] as config <<core>>
+        [Внедрение зависимостей] as di <<core>>
+    }
+
+    package "Основные сервисы" {
+        [Исполнитель бенчмарков] as runner <<service>>
+        [Генератор данных] as datagen <<service>>
+        [Обработчик результатов] as results <<service>>
+        [Визуализация] as plots <<service>>
+        [Ожидание БД] as wait <<service>>
+    }
+
+    package "Инфраструктура" {
+        [Логирование] as logging <<infrastructure>>
+        [Утилиты] as utils <<infrastructure>>
+    }
+}
+
+package "Слой баз данных" {
+    package "Интерфейсы" {
+        [Интерфейс загрузчика БД] as dbinterface <<interface>>
+        [Интерфейс логгера] as loginterface <<interface>>
+    }
+
+    package "Абстрактная база" {
+        [Базовый загрузчик] as base <<implementation>>
+    }
+
+    package "Конкретные реализации" {
+        [Загрузчик ClickHouse] as clickhouse <<implementation>>
+        [Загрузчик PostgreSQL] as postgres <<implementation>>
+        [Загрузчик Vertica] as vertica <<implementation>>
+    }
+}
+
+package "Внешние зависимости" {
+    [Драйвер ClickHouse] as chdriver <<external>>
+    [Драйвер PostgreSQL] as pgdriver <<external>>
+    [Драйвер Vertica] as vdriver <<external>>
+    [Обработка данных] as dataproc <<external>>
+    [Библиотека конфигурации] as conf_lib <<external>>
+}
+
+package "Целевые системы" {
+    [ClickHouse] as chdb <<database>>
+    [PostgreSQL] as pgdb <<database>>
+    [Vertica] as vdb <<database>>
+    [Файловое хранилище] as storage <<storage>>
+}
+
+' Связи по слоям
+main --> config : читает конфигурацию
+main --> di : инициализирует
+main --> runner : выполняет
+
+di --> dbinterface : предоставляет
+di --> loginterface : предоставляет
+di --> clickhouse : создает
+di --> postgres : создает
+di --> vertica : создает
+
+runner --> dbinterface : использует
+runner --> datagen : генерирует данные
+runner --> results : сохраняет результаты
+runner --> plots : создает графики
+
+clickhouse --> base : наследует
+clickhouse --> chdriver : использует
+postgres --> base : наследует
+postgres --> pgdriver : использует
+vertica --> base : наследует
+vertica --> vdriver : использует
+
+base --> dbinterface : реализует
+base --> loginterface : использует
+
+datagen --> dataproc : использует
+results --> storage : записывает
+plots --> storage : записывает
+config --> conf_lib : использует
+
+chdriver --> chdb : подключается
+pgdriver --> pgdb : подключается
+vdriver --> vdb : подключается
+
+wait --> utils : использует
+
+' Нотации на русском языке
+note right of main
+    Точка входа в приложение
+    Координирует все компоненты
+end note
+
+note right of di
+    Контейнер внедрения зависимостей
+    Управляет жизненным циклом компонентов
+end note
+
+note right of runner
+    Оркестрация бенчмарков
+    Выполняет процесс загрузки
+end note
+
+note right of dbinterface
+    Определяет контракт для всех загрузчиков БД
+    Обеспечивает полиморфизм
+end note
+
+note right of base
+    Абстрактная базовая реализация
+    Общая функциональность
+end note
+
+note right of logging
+    Реализация адаптера логгера
+    Следует интерфейсу LoggerInterface
+end note
+
+note right of results
+    Сохранение результатов в CSV
+    Статистический анализ
+end note
+
+note right of plots
+    Визуализация данных
+    Генерация графиков производительности
+end note
+
+note right of datagen
+    Генерация тестовых данных
+    Пакетная обработка
+end note
+
+note right of wait
+    Проверка готовности баз данных
+    Мониторинг состояния
+end note
+
+note right of utils
+    Низкоуровневые проверки подключения к БД
+    Проверка доступности портов
+end note
+
+note right of config
+    Конфигурация среды
+    Типобезопасный доступ к конфигурации
+end note
+
+@enduml
