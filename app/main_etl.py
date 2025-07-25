@@ -9,7 +9,9 @@ import signal
 import sys
 from .etl.runner import ETLRunner
 from .core.logger import logger
+from .core.config import config
 from .clickhouse.client import ClickHouseClient
+from .core.tracer import TracerConfig
 
 # Глобальные переменные для graceful shutdown
 running = True
@@ -34,6 +36,7 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
 
     logger.info("Initializing ETL service")
+    tracer_config_instance = TracerConfig(config.service_name)
 
     try:
         # Проверяем соединение с ClickHouse

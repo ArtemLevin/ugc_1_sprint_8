@@ -3,19 +3,19 @@ FROM python:3.11-slim
 RUN apt-get update && apt-get install -y \
     gcc \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m pip install --upgrade pip \
+ && pip install --no-cache-dir --pre -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /var/log/cinema-analytics
-
-RUN chmod +x scripts/*.sh
+RUN mkdir -p /var/log/cinema-analytics \
+ && chmod +x scripts/*.sh
 
 RUN useradd -m -u 1000 appuser
 USER appuser

@@ -12,6 +12,7 @@ from .api.routes import bp
 from .kafka.producer import KafkaEventProducer
 from .core.config import config
 from .core.logger import logger
+from .core.tracer import TracerConfig
 
 app = Quart(__name__)
 app.register_blueprint(bp)
@@ -67,7 +68,7 @@ def main():
 
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
-
+    tracer_config_instance = TracerConfig(config.service_name)
     logger.info("Initializing API service",
                 host=config.api.host,
                 port=config.api.port,
