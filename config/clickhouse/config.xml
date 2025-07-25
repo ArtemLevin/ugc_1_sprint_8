@@ -1,0 +1,55 @@
+<yandex>
+    <!-- Конфигурация логирования -->
+    <logger>
+        <level>information</level>
+        <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+        <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
+        <size>1000M</size>
+        <count>10</count>
+    </logger>
+
+    <!-- HTTP сервер -->
+    <http_port>8123</http_port>
+
+    <!-- TCP сервер (для клиентов) -->
+    <tcp_port>9000</tcp_port>
+
+    <!-- Интерфейсы, на которых сервер будет слушать -->
+    <listen_host>::</listen_host>
+
+    <!-- Путь к данным -->
+    <path>/var/lib/clickhouse/</path>
+
+    <!-- Путь к временным файлам -->
+    <tmp_path>/var/lib/clickhouse/tmp/</tmp_path>
+
+    <!-- Путь к пользовательским файлам -->
+    <user_files_path>/var/lib/clickhouse/user_files/</user_files_path>
+
+    <!-- Путь к доступным базам данных -->
+    <access_control_path>/var/lib/clickhouse/access/</access_control_path>
+
+    <!-- Настройки пользователя по умолчанию -->
+    <users_config>users.xml</users_config>
+
+    <!-- Не требовать пароль для default пользователя (для упрощения) -->
+    <default_access_management>1</default_access_management>
+
+    <!-- Отключить проверку макросов для упрощения запуска -->
+    <macros>
+        <layer>01</layer>
+        <shard>01</shard>
+        <replica>01</replica>
+    </macros>
+
+    <!-- Настройки MergeTree -->
+    <merge_tree>
+        <max_suspicious_broken_parts>5</max_suspicious_broken_parts>
+    </merge_tree>
+
+    <!-- Настройки распределенных DDL -->
+    <distributed_ddl>
+        <path>/clickhouse/task_queue/ddl</path>
+    </distributed_ddl>
+
+</yandex>
