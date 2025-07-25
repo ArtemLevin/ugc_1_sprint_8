@@ -1,0 +1,127 @@
+@startuml
+' Настройки оформления
+skinparam dpi 150
+skinparam shadowing false
+skinparam handwritten false
+skinparam roundcorner 10
+
+' Цветовая схема для участников
+skinparam actor {
+    BackgroundColor LightBlue
+    BorderColor Blue
+}
+
+skinparam participant {
+    BackgroundColor<<main>> LightSkyBlue
+    BackgroundColor<<di>> LightGreen
+    BackgroundColor<<wait>> LightYellow
+    BackgroundColor<<runner>> LightCoral
+    BackgroundColor<<datagen>> LightSalmon
+    BackgroundColor<<dbloader>> LightPink
+    BackgroundColor<<results>> LightCyan
+    BackgroundColor<<plot>> LightGoldenRodYellow
+}
+
+' Цветовая схема для активаций
+skinparam activation {
+    BackgroundColor LightGray
+    BorderColor Gray
+}
+
+title Процесс бенчмарка баз данных
+
+actor "Пользователь" as User #LightBlue
+participant "Главное приложение" as Main <<main>> #LightSkyBlue
+participant "Контейнер DI" as DI <<di>> #LightGreen
+participant "Ожидание БД" as Wait <<wait>> #LightYellow
+participant "Исполнитель бенчмарков" as Runner <<runner>> #LightCoral
+participant "Генератор данных" as DataGen <<datagen>> #LightSalmon
+participant "Загрузчик БД" as DBLoader <<dbloader>> #LightPink
+participant "Сохранение результатов" as Results <<results>> #LightCyan
+participant "Генератор графиков" as Plot <<plot>> #LightGoldenRodYellow
+
+User->Main: Выполнить
+activate Main #LightGray
+
+Main->Wait: wait_for_all_databases()
+activate Wait #LightGray
+Wait->Wait: проверка порта()
+Wait->Wait: проверка функциональности()
+Wait-->Main: возврат готовности
+deactivate Wait
+
+Main->DI: DIContainer()
+activate DI #LightGray
+DI-->Main: контейнер
+deactivate DI
+
+Main->Runner: run_benchmark()
+activate Runner #LightGray
+
+Runner->DI: get_loader(имя_бд)
+activate DI #LightGray
+DI-->Runner: экземпляр DBLoader
+deactivate DI
+
+Runner->DBLoader: log_start()
+activate DBLoader #LightGray
+DBLoader-->Runner:
+deactivate DBLoader
+
+Runner->DBLoader: connect()
+activate DBLoader #LightGray
+DBLoader-->Runner: соединение установлено
+deactivate DBLoader
+
+Runner->DBLoader: create_table()
+activate DBLoader #LightGray
+DBLoader-->Runner: таблица создана
+deactivate DBLoader
+
+Runner->DI: get_data_generator()
+activate DI #LightGray
+DI->DataGen: generate_dataframe_batch()
+activate DataGen #LightGray
+DataGen->DataGen: generate_data()
+DataGen-->DI: пакеты данных
+deactivate DataGen
+DI-->Runner: генератор данных
+deactivate DI
+
+Runner->DBLoader: load_data(пакеты_данных)
+activate DBLoader #LightGray
+loop для каждого пакета
+    DBLoader->DBLoader: вставка пакета
+end
+DBLoader-->Runner: затраченное время
+deactivate DBLoader
+
+Runner->DBLoader: log_completion()
+activate DBLoader #LightGray
+DBLoader-->Runner:
+deactivate DBLoader
+
+Runner->DBLoader: close()
+activate DBLoader #LightGray
+DBLoader-->Runner: соединение закрыто
+deactivate DBLoader
+
+Runner->Results: save_results()
+activate Results #LightGray
+Results->Results: запись в CSV
+Results-->Runner: путь к файлу
+deactivate Results
+
+Runner->Plot: generate_plots()
+activate Plot #LightGray
+Plot->Plot: создание графиков производительности
+Plot-->Runner: файлы графиков
+deactivate Plot
+
+Runner-->Main: словарь результатов
+deactivate Runner
+
+Main->Main: отображение результатов
+Main-->User: Показать результаты и пути к файлам
+deactivate Main
+@enduml
