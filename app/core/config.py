@@ -1,155 +1,107 @@
 """
-Модуль конфигурации приложения.
+Конфигурация приложения.
 
-Содержит настройки для всех компонентов приложения, включая Kafka, Redis, DLQ, Rate Limiting,
-трассировку и общие параметры приложения.
+Содержит все настройки для подключения к внешним сервисам
+и параметры работы приложения в виде классов Pydantic.
 """
 
+from typing import Optional
 from pydantic_settings import BaseSettings
-from pydantic import Field, BaseModel, ConfigDict, field_validator
-import logging
-import re
-
-logger = logging.getLogger(__name__)
-
-class KafkaSettings(BaseModel):
-    """
-    Настройки для Kafka.
-
-    Attributes:
-        bootstrap_server: Адрес Kafka-брокера.
-        topic: Имя топика по умолчанию.
-        send_timeout: Таймаут для отправки сообщения (в секундах).
-        max_batch_size: Максимальный размер батча для буферизации.
-        request_size: Максимальный размер запроса (в байтах).
-        flush_interval: Интервал отправки батча (в секундах).
-    """
-    bootstrap_server: str = Field(default="message-broker:9092", validation_alias="KAFKA_BOOTSTRAP_SERVER")
-    topic: str = Field(default="user_events", validation_alias="KAFKA_TOPIC")
-    send_timeout: int = Field(default=5, validation_alias="KAFKA_SEND_TIMEOUT")
-    max_batch_size: int = Field(default=16384, validation_alias="KAFKA_MAX_BATCH_SIZE")
-    request_size: int = Field(default=1048576, validation_alias="KAFKA_REQUEST_SIZE")
-    flush_interval: int = Field(default=5, validation_alias="KAFKA_FLUSH_INTERVAL")
-
-    @field_validator("request_size")
-    @classmethod
-    def validate_request_size(cls, v: int) -> int:
-        """Проверяет, что размер запроса не превышает 10MB."""
-        if v > 10 * 1024 * 1024:  # 10MB
-            logger.warning("Kafka request size exceeds 10MB", size=v)
-            raise ValueError("Request size must not exceed 10MB")
-        return v
+from pydantic import Field
 
 
-class RedisSettings(BaseModel):
-    """
-    Настройки для Redis.
+class KafkaConfig(BaseSettings):
+    """Конфигурация Kafka."""
 
-    Attributes:
-        url: URL подключения к Redis.
-        max_connections: Максимальное количество подключений.
-        retry_attempts: Количество попыток при неудачном подключении.
-        default_ttl: Время жизни ключей по умолчанию (в секундах).
-    """
-    url: str = Field(default="redis://cache:6379", validation_alias="REDIS_URL")
-    max_connections: int = Field(default=10, validation_alias="REDIS_MAX_CONNECTIONS")
-    retry_attempts: int = Field(default=3, validation_alias="REDIS_RETRY_ATTEMPTS")
-    default_ttl: int = 3600  # 1 hour
+    bootstrap_servers: str = Field(default="localhost:9092", env="KAFKA_BOOTSTRAP_SERVERS")
+    topic: str = Field(default="user_events", env="KAFKA_TOPIC")
+    dlq_topic: str = Field(default="dlq_user_events", env="KAFKA_DLQ_TOPIC")
+    group_id: str = Field(default="etl-consumer-group", env="KAFKA_GROUP_ID")
+    auto_offset_reset: str = Field(default="earliest", env="KAFKA_AUTO_OFFSET_RESET")
+
+    class Config:
+        env_prefix = "KAFKA_"
 
 
-class DLQSettings(BaseModel):
-    """
-    Настройки для Dead Letter Queue (DLQ) на основе Redis.
+class RedisConfig(BaseSettings):
+    """Конфигурация Redis."""
 
-    Attributes:
-        redis_url: URL подключения к Redis для DLQ.
-        queue_key: Ключ для хранения сообщений в Redis.
-    """
-    redis_url: str = Field(default="redis://dlq-cache:6379", validation_alias="DLQ_REDIS_URL")
-    dlq_queue_key: str = Field(default="dlq_kafka", validation_alias="DLQ_QUEUE_KEY")
+    host: str = Field(default="localhost", env="REDIS_HOST")
+    port: int = Field(default=6379, env="REDIS_PORT")
+    db: int = Field(default=0, env="REDIS_DB")
+    events_key: str = Field(default="events_buffer", env="REDIS_EVENTS_KEY")
+    dlq_key: str = Field(default="dlq_events", env="REDIS_DLQ_KEY")
 
-class DuplicateCheckerSettings(BaseModel):
-    """
-    Настройки для сервиса проверки дубликатов (DuplicateChecker).
-
-    Attributes:
-        cache_ttl: Время жизни записи о событии в кэше (в секундах). По умолчанию 1 час.
-        key_prefix: Префикс для ключей Redis, используемых для хранения хэшей событий.
-    """
-    cache_ttl: int = Field(default=3600, validation_alias="DUPLICATE_CHECKER__CACHE_TTL", ge=1) # Минимум 1 секунда
-    key_prefix: str = Field(default="user_actions", validation_alias="DUPLICATE_CHECKER__KEY_PREFIX", min_length=1)
-
-    @field_validator('key_prefix')
-    @classmethod
-    def validate_key_prefix(cls, v: str) -> str:
-        """
-        Проверяет, что префикс ключа состоит только из допустимых символов.
-        Допустимые символы: буквы (a-z, A-Z), цифры (0-9), подчеркивание (_), дефис (-).
-        """
-        if not re.fullmatch(r"[a-zA-Z0-9_-]+", v):
-            raise ValueError('key_prefix must contain only letters, numbers, underscores, and hyphens')
-        return v
+    class Config:
+        env_prefix = "REDIS_"
 
 
-class RateLimitSettings(BaseModel):
-    """
-    Настройки рейт-лимита.
+class ClickHouseConfig(BaseSettings):
+    """Конфигурация ClickHouse."""
 
-    Attributes:
-        rate_limit: Максимальное количество запросов в интервале.
-        window_seconds: Длительность окна ограничения (в секундах).
-    """
-    rate_limit: int = Field(default=100, validation_alias="RATE_LIMIT")
-    window_seconds: int = Field(default=60, validation_alias="RATE_LIMIT_WINDOW")
+    host: str = Field(default="localhost", env="CLICKHOUSE_HOST")
+    port: int = Field(default=9000, env="CLICKHOUSE_PORT")
+    database: str = Field(default="default", env="CLICKHOUSE_DATABASE")
+    table: str = Field(default="user_events", env="CLICKHOUSE_TABLE")
+    user: str = Field(default="default", env="CLICKHOUSE_USER")
+    password: str = Field(default="", env="CLICKHOUSE_PASSWORD")
 
-
-class TracingSettings(BaseModel):
-    """
-    Настройки трассировки с использованием OpenTelemetry.
-
-    Attributes:
-        otlp_endpoint: URL для отправки трассировок.
-    """
-    otel_exporter_otlp_endpoint: str = Field(default="http://tracing:4318/v1/traces", env="OTEL_EXPORTER_OTLP_ENDPOINT")
+    class Config:
+        env_prefix = "CLICKHOUSE_"
 
 
-class AppSettings(BaseModel):
-    """
-    Общие настройки приложения.
+class JaegerConfig(BaseSettings):
+    """Конфигурация Jaeger."""
 
-    Attributes:
-        environment: Текущая среда (development, staging, production).
-        debug: Включен ли режим отладки.
-        name: Имя приложения.
-    """
-    environment: str = Field(default="development", validation_alias="APP_ENV")
-    debug: bool = Field(default=False, validation_alias="APP_DEBUG")
-    name: str = Field(default="UserActionCollector", validation_alias="APP_NAME")
+    agent_host: str = Field(default="localhost", env="JAEGER_AGENT_HOST")
+    agent_port: int = Field(default=6831, env="JAEGER_AGENT_PORT")
+    collector_endpoint: Optional[str] = Field(default=None, env="JAEGER_COLLECTOR_ENDPOINT")
+
+    class Config:
+        env_prefix = "JAEGER_"
 
 
-class Settings(BaseSettings):
-    """
-    Главная конфигурация приложения.
+class ETLConfig(BaseSettings):
+    """Конфигурация ETL процесса."""
 
-    Attributes:
-        kafka: Настройки Kafka.
-        redis: Настройки Redis.
-        dlq: Настройки DLQ.
-        rate_limit: Настройки рейт-лимита.
-        tracing: Настройки трассировки.
-        app: Общие настройки приложения.
-    """
-    model_config = ConfigDict(env_nested_delimiter="__", extra="ignore")
+    batch_size: int = Field(default=100, env="BATCH_SIZE")
+    batch_timeout: int = Field(default=5, env="BATCH_TIMEOUT")  # секунды
+    max_retries: int = Field(default=3, env="MAX_RETRIES")
+    retry_delay: int = Field(default=2, env="RETRY_DELAY")  # секунды
+    process_interval: int = Field(default=1, env="PROCESS_INTERVAL")  # секунды
 
-    kafka: KafkaSettings = KafkaSettings()
-    redis: RedisSettings = RedisSettings()
-    duplicate_checker: DuplicateCheckerSettings = DuplicateCheckerSettings()
-    dlq: DLQSettings = DLQSettings()
-    rate_limit: RateLimitSettings = RateLimitSettings()
-    tracing: TracingSettings = TracingSettings()
-    app: AppSettings = AppSettings()
+    class Config:
+        env_prefix = "ETL_"
 
 
+class APIConfig(BaseSettings):
+    """Конфигурация API сервиса."""
 
-settings = Settings()
-logger.info("Application settings loaded", app_name=settings.app.name, environment=settings.app.environment)
+    host: str = Field(default="0.0.0.0", env="API_HOST")
+    port: int = Field(default=8000, env="API_PORT")
+    debug: bool = Field(default=False, env="API_DEBUG")
+
+    class Config:
+        env_prefix = "API_"
+
+
+class AppConfig(BaseSettings):
+    """Основная конфигурация приложения."""
+
+    kafka: KafkaConfig = KafkaConfig()
+    redis: RedisConfig = RedisConfig()
+    clickhouse: ClickHouseConfig = ClickHouseConfig()
+    jaeger: JaegerConfig = JaegerConfig()
+    etl: ETLConfig = ETLConfig()
+    api: APIConfig = APIConfig()
+
+    service_name: str = Field(default="cinema-analytics", env="SERVICE_NAME")
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+    environment: str = Field(default="development", env="ENVIRONMENT")
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+config = AppConfig()

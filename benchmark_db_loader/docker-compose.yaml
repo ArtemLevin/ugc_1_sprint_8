@@ -83,10 +83,10 @@ services:
       - BATCH_SIZE=${BATCH_SIZE}
       - LOG_LEVEL=${LOG_LEVEL}
     volumes:
-      - .:/app
-      - benchmark_results:/app/results
-      - benchmark_plots:/app/plots
-    entrypoint: ["/app/scripts/wait-for-dbs.sh"]
+      - .:/app_v_1
+      - benchmark_results:/app_v_1/results
+      - benchmark_plots:/app_v_1/plots
+    entrypoint: ["/app_v_1/scripts/wait-for-dbs.sh"]
     command: ["python", "-m", "src.main"]
 
 volumes:
