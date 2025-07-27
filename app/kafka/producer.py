@@ -20,21 +20,22 @@ class KafkaEventProducer:
 
     def __init__(self):
         """Инициализирует Kafka продюсера."""
-        self.producer = AIOKafkaProducer(
-            bootstrap_servers=config.kafka.bootstrap_servers,
-            acks=1,  # Ждем подтверждения от лидера
-            retries=3,  # Повторные попытки при ошибках
-            linger_ms=10  # Задержка для батчинга
-        )
+        self._producer: AIOKafkaProducer | None = None
         self.topic = config.kafka.topic
-        logger.info("Kafka producer initialized",
-                    bootstrap_servers=config.kafka.bootstrap_servers,
-                    topic=self.topic)
+        self.dlq_topic = config.kafka.dlq_topic
+        logger.info("KafkaEventProducer instance created")
 
     async def start(self) -> None:
         """Запускает Kafka продюсера."""
+        if self._producer is None:
+            self._producer = AIOKafkaProducer(
+                bootstrap_servers=config.kafka.bootstrap_servers,
+                acks=1,  # Ждем подтверждения от лидера
+                linger_ms=10  # Задержка для батчинга
+            )
+
         try:
-            await self.producer.start()
+            await self._producer.start()
             logger.info("Kafka producer started")
         except Exception as e:
             logger.error("Failed to start Kafka producer", error=str(e))
@@ -42,11 +43,12 @@ class KafkaEventProducer:
 
     async def stop(self) -> None:
         """Останавливает Kafka продюсера."""
-        try:
-            await self.producer.stop()
-            logger.info("Kafka producer stopped")
-        except Exception as e:
-            logger.error("Failed to stop Kafka producer", error=str(e))
+        if self._producer:
+            try:
+                await self._producer.stop()
+                logger.info("Kafka producer stopped")
+            except Exception as e:
+                logger.error("Failed to stop Kafka producer", error=str(e))
 
     async def send_event(self, event: Dict[str, Any]) -> None:
         """
@@ -58,11 +60,14 @@ class KafkaEventProducer:
         Raises:
             Exception: При ошибке отправки сообщения
         """
+        if not self._producer:
+            raise RuntimeError("Kafka producer not started")
+        
         try:
             message = json.dumps(event, ensure_ascii=False, default=str).encode('utf-8')
 
             # Отправляем сообщение в топик
-            await self.producer.send_and_wait(self.topic, message)
+            await self._producer.send_and_wait(self.topic, message)
 
             logger.info("Event sent to Kafka",
                         topic=self.topic,
@@ -83,9 +88,12 @@ class KafkaEventProducer:
         Args:
             event: Словарь с данными события
         """
+        if not self._producer:
+            raise RuntimeError("Kafka producer not started")
+        
         try:
             message = json.dumps(event, ensure_ascii=False, default=str).encode('utf-8')
-            await self.producer.send_and_wait(config.kafka.dlq_topic, message)
+            await self._producer.send_and_wait(config.kafka.dlq_topic, message)
             logger.warning("Event sent to DLQ",
                            topic=config.kafka.dlq_topic,
                            event_type=event.get('event_type'))

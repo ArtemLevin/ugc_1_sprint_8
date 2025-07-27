@@ -16,6 +16,7 @@ from ..clickhouse.models import UserEventModel
 from ..core.config import config
 from ..core.logger import logger
 
+
 class ETLProcessor:
     """
     Основной процессор ETL потока данных.

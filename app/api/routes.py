@@ -4,9 +4,8 @@ API маршруты для приема пользовательских соб
 Обеспечивают валидацию данных и отправку в Kafka.
 """
 
-from quart import Blueprint, request, jsonify
+from quart import Blueprint, request, jsonify, current_app
 from pydantic import ValidationError
-from ..kafka.producer import KafkaEventProducer
 from ..core.logger import logger
 from ..api.schemas import UserEventSchema, HealthResponseSchema, DLQStatusSchema
 from opentelemetry import trace
@@ -15,7 +14,6 @@ tracer = trace.get_tracer(__name__)
 
 bp = Blueprint("api", __name__)
 
-producer: KafkaEventProducer = None
 
 @bp.route("/health", methods=["GET"])
 async def health_check():
@@ -31,7 +29,7 @@ async def health_check():
             service="cinema-analytics-api",
             version="1.0.0"
         )
-        return jsonify(response.dict()), 200
+        return jsonify(response.model_dump()), 200
 
 @bp.route("/event", methods=["POST"])
 async def send_event():
@@ -40,13 +38,50 @@ async def send_event():
 
     Принимает JSON с данными события, валидирует их и отправляет в Kafka.
 
-    Request Body:
-        {
-            "user_id": "string",
-            "movie_id": "string",
-            "event_type": "string",
-            "timestamp": "datetime"
-        }
+    Примеры валидных запросов:
+        curl -X POST http://localhost:8000/event -H "Content-Type: application/json" -d '{
+            "user_id": "user123",
+            "event_id": "event123",
+            "timestamp": "2025-07-26T09:20:46Z",
+            "event_type": "click",
+            "target": "movie_card"
+        }'
+
+        curl -X POST http://localhost:8000/event -H "Content-Type: application/json" -d '{
+            "user_id": "user123",
+            "event_id": "event123",
+            "timestamp": "2025-07-26T09:20:46Z",
+            "event_type": "page_view",
+            "page": "asda",
+            "duration_seconds": "10"
+        }'
+
+        curl -X POST http://localhost:8000/event -H "Content-Type: application/json" -d '{
+            "user_id": "user123",
+            "event_id": "event123",
+            "timestamp": "2025-07-26T09:20:46Z",
+            "event_type": "quality_change",
+            "from_quality": "720",
+            "to_quality": "1480",
+            "movie_id": "123"
+        }'
+
+        curl -X POST http://localhost:8000/event -H "Content-Type: application/json" -d '{
+            "user_id": "user123",
+            "event_id": "event123",
+            "timestamp": "2025-07-26T09:20:46Z",
+            "event_type": "watched_to_end",
+            "movie_id": "123"
+        }'
+
+        curl -X POST http://localhost:8000/event -H "Content-Type: application/json" -d '{
+            "user_id": "user123",
+            "event_id": "event123",
+            "timestamp": "2025-07-26T09:20:46Z",
+            "event_type": "filter_used",
+            "filter_name": "genre",
+            "filter_value": "comedy"
+        }'
 
     Returns:
         JSON ответ с результатом операции
@@ -64,9 +99,9 @@ async def send_event():
             span.set_attribute("event.event_type", data.get("event_type", "unknown"))
 
             try:
-                event = UserEventSchema(**data)
-                validated_data = event.dict()
-                logger.info("Event validated successfully", event=validated_data)
+                event = UserEventSchema.validate_python(data)
+                validated_data = event.model_dump()
+                logger.info("Event validated successfully", validated_event=validated_data) # ругалось на повторение event
             except ValidationError as e:
                 span.set_status(trace.Status(trace.StatusCode.ERROR, "Validation failed"))
                 logger.error("Event validation failed", errors=e.errors())
@@ -75,10 +110,11 @@ async def send_event():
                     "details": e.errors()
                 }), 400
 
+            producer = current_app.extensions['kafka_producer']
             await producer.send_event(validated_data)
 
             span.set_status(trace.Status(trace.StatusCode.OK))
-            logger.info("Event processed successfully", event=validated_data)
+            logger.info("Event processed successfully", validated_event=validated_data) # ругалось на повторение event
 
             return jsonify({"status": "ok", "message": "Event sent successfully"}), 200
 
@@ -103,4 +139,4 @@ async def get_dlq_status():
             dlq_length=0,
             dlq_enabled=True
         )
-        return jsonify(response.dict()), 200
+        return jsonify(response.model_dump()), 200
