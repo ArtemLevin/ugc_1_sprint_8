@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  vertica-node1:
+    image: jbfavre/vertica:latest
+    hostname: vertica-node1
+    environment:
+      - NODE_TYPE=primary
+      - DATABASE_NAME=docker
+      - DATABASE_PASSWORD=
+      - NODES=vertica-node1,vertica-node2,vertica-node3,vertica-node4
+      - TLS_CONFIG=off  # Явное отключение TLS
+    ports:
+      - "5433:5433"
+
+  vertica-node2:
+    image: jbfavre/vertica:latest
+    hostname: vertica-node2
+    environment:
+      - NODE_TYPE=secondary
+      - DATABASE_NAME=docker
+      - DATABASE_PASSWORD=
+      - NODES=vertica-node1,vertica-node2,vertica-node3,vertica-node4
+      - TLS_CONFIG=off
+
+  vertica-node3:
+    image: jbfavre/vertica:latest
+    hostname: vertica-node3
+    environment:
+      - NODE_TYPE=secondary
+      - DATABASE_NAME=docker
+      - DATABASE_PASSWORD=
+      - NODES=vertica-node1,vertica-node2,vertica-node3,vertica-node4
+      - TLS_CONFIG=off
+
+  vertica-node4:
+    image: jbfavre/vertica:latest
+    hostname: vertica-node4
+    environment:
+      - NODE_TYPE=secondary
+      - DATABASE_NAME=docker
+      - DATABASE_PASSWORD=
+      - NODES=vertica-node1,vertica-node2,vertica-node3,vertica-node4
+      - TLS_CONFIG=off
+
+volumes:
+  vertica_data:
