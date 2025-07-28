@@ -7,23 +7,6 @@ from app.clickhouse.models import UserEventModel
 from app.core.config import config
 
 
-# Мокаем значения конфигурации для последовательного тестирования
-@pytest.fixture(autouse=True)
-def mock_config():
-    with patch('app.core.config.config') as mock_cfg:
-        mock_cfg.etl.batch_size = 2
-        mock_cfg.etl.batch_timeout = 1
-        mock_cfg.etl.max_retries = 1
-        mock_cfg.etl.retry_delay = 0.01
-        mock_cfg.etl.process_interval = 0.01
-        mock_cfg.redis.events_key = "test_events_buffer"
-        mock_cfg.redis.dlq_key = "test_dlq_events"
-        mock_cfg.kafka.topic = "test_user_events"
-        mock_cfg.kafka.dlq_topic = "test_dlq_user_events"
-        mock_cfg.service_name = "test-service"
-        yield mock_cfg
-
-
 @pytest.fixture
 def mock_etl_components():
     """Фикстура для мока всех внешних зависимостей ETLProcessor."""
@@ -117,7 +100,6 @@ async def test_etl_processor_full_batch_processing(mock_etl_components, mock_con
 
     await processor.start()
     await processor.process()
-
 
     mock_consumer.start.assert_called_once()
     mock_buffer.push.assert_any_call(mock_config.redis.events_key, event1_json)
@@ -218,7 +200,7 @@ async def test_etl_processor_clickhouse_insert_failure_to_dlq(mock_etl_component
                                                  MagicMock(spec=UserEventModel, to_tuple=MagicMock(
                                                      return_value=("u2", "m2", "stop", datetime.now())))
                                              ] * (
-                                                         mock_config.etl.max_retries + 1)  # Обеспечиваем достаточное количество валидных моков для повторных попыток
+                                                     mock_config.etl.max_retries + 1)  # Обеспечиваем достаточное количество валидных моков для повторных попыток
 
     # Симулируем сбой вставки в ClickHouse
     mock_clickhouse.insert_batch.side_effect = Exception("ClickHouse connection error")
