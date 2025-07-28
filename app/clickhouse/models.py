@@ -35,11 +35,18 @@ class UserEventModel:
         Returns:
             UserEventModel: Экземпляр события
         """
+        timestamp_dt = data['timestamp']
+        if isinstance(timestamp_dt, str):
+            try:
+                timestamp_dt = datetime.fromisoformat(timestamp_dt)
+            except ValueError as e:
+                raise ValueError(f"Invalid timestamp format: {timestamp_dt}") from e
+
         return cls(
             user_id=data['user_id'],
             movie_id=data['movie_id'],
             event_type=data['event_type'],
-            timestamp=data['timestamp']
+            timestamp=timestamp_dt
         )
 
 
